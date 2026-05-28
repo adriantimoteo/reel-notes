@@ -135,3 +135,32 @@ async def test_plain_url_no_reel_no_reply() -> None:
     msg = _make_message(ALLOWED_ID, "https://www.google.com/search?q=cats")
     await handle_message(msg)
     msg.answer.assert_not_called()
+
+
+# --- Logger assertion tests ---
+
+@pytest.mark.asyncio
+async def test_matched_url_logs_info_reel_detected() -> None:
+    import unittest
+    msg = _make_message(ALLOWED_ID, "https://www.instagram.com/reel/abc123/")
+    with unittest.TestCase().assertLogs("bot.handlers", level="DEBUG") as cm:
+        await handle_message(msg)
+    assert any("reel detected" in line and "instagram" in line for line in cm.output)
+
+
+@pytest.mark.asyncio
+async def test_no_url_logs_debug_no_reel_detected() -> None:
+    import unittest
+    msg = _make_message(ALLOWED_ID, "just a normal message")
+    with unittest.TestCase().assertLogs("bot.handlers", level="DEBUG") as cm:
+        await handle_message(msg)
+    assert any("no reel URL detected" in line for line in cm.output)
+
+
+@pytest.mark.asyncio
+async def test_wrong_user_logs_debug_ignored() -> None:
+    import unittest
+    msg = _make_message(user_id=99999, text="https://www.instagram.com/reel/abc123/")
+    with unittest.TestCase().assertLogs("bot.handlers", level="DEBUG") as cm:
+        await handle_message(msg)
+    assert any("ignored" in line for line in cm.output)

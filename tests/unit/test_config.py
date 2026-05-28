@@ -17,6 +17,7 @@ ALL_VARS = {
     "DB_PATH": "/tmp/db.sqlite",
     "DOWNLOAD_TEMP_DIR": "/tmp/downloads",
     "MAX_VIDEO_DURATION_SECONDS": "180",
+    "LOG_LEVEL": "INFO",
 }
 
 REQUIRED_VARS = [
@@ -95,3 +96,14 @@ def test_missing_required_var_raises_config_error(
             assert missing_var in str(exc), (
                 f"Expected '{missing_var}' in error message, got: {exc}"
             )
+
+
+def test_log_level_absent_defaults_to_info(monkeypatch: pytest.MonkeyPatch) -> None:
+    env = {k: v for k, v in ALL_VARS.items() if k != "LOG_LEVEL"}
+    cfg = reload_config(monkeypatch, env)
+    assert cfg.LOG_LEVEL == "INFO"
+
+
+def test_log_level_lowercase_is_uppercased(monkeypatch: pytest.MonkeyPatch) -> None:
+    cfg = reload_config(monkeypatch, {**ALL_VARS, "LOG_LEVEL": "debug"})
+    assert cfg.LOG_LEVEL == "DEBUG"

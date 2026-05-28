@@ -28,6 +28,7 @@ def _load() -> None:
     global DB_PATH
     global DOWNLOAD_TEMP_DIR
     global MAX_VIDEO_DURATION_SECONDS
+    global LOG_LEVEL
 
     TELEGRAM_BOT_TOKEN = _require("TELEGRAM_BOT_TOKEN")
     TELEGRAM_ALLOWED_USER_ID = int(_require("TELEGRAM_ALLOWED_USER_ID"))
@@ -37,6 +38,7 @@ def _load() -> None:
     DB_PATH = Path(_require("DB_PATH"))
     DOWNLOAD_TEMP_DIR = Path(_require("DOWNLOAD_TEMP_DIR"))
     MAX_VIDEO_DURATION_SECONDS = int(os.getenv("MAX_VIDEO_DURATION_SECONDS", "120"))
+    LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO").upper()
 
 
 TELEGRAM_BOT_TOKEN: str
@@ -47,5 +49,6 @@ VAULT_NOTES_SUBDIR: str
 DB_PATH: Path
 DOWNLOAD_TEMP_DIR: Path
 MAX_VIDEO_DURATION_SECONDS: int
+LOG_LEVEL: str
 
 _load()
