@@ -1,6 +1,7 @@
 # Python-generated files
 __pycache__/
 *.py[oc]
+*.pyc
 build/
 dist/
 wheels/
@@ -8,3 +9,13 @@ wheels/
 
 # Virtual environments
 .venv
+
+# Secrets
+.env
+
+# Runtime data
+db/
+downloads/
+*.db
+.pytest_cache/
+tmp/
