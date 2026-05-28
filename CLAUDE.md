@@ -96,10 +96,25 @@ Work one ticket at a time. The tickets are in `./Tickets/`. Each ticket specifie
 
 ---
 
+## Logging
+
+Use Python's standard `logging` module — no third-party packages.
+
+- Each module gets a logger at module level: `logger = logging.getLogger(__name__)`
+- Configure level and format once in `main.py` via `logging.basicConfig`
+- `INFO` for significant events (bot started, reel detected, stage completed, shutdown)
+- `DEBUG` for diagnostic detail (message received, gate rejected, no URL found)
+- `ERROR` for caught exceptions before re-raising or surfacing to the user
+- Log level controlled by `config.LOG_LEVEL` (env var `LOG_LEVEL`, default `"INFO"`)
+
+Every new module that handles meaningful work should add a logger. Stub files do not need one until they have logic.
+
+---
+
 ## Do not
 
 - Add non-goal features from `01-spec.md` — no multi-user support, no web UI, no geocoding, no aggregation
-- Add logging frameworks — `print()` to stdout is sufficient for a personal tool at this scale
+- Use third-party logging packages (loguru, structlog, etc.) — use Python's standard `logging` module only
 - Auto-format files you have not touched in the current ticket
 - Modify `pyproject.toml` `[tool.*]` sections without asking
 - Add error handling or fallbacks for scenarios that cannot happen — trust internal guarantees
