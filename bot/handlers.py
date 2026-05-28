@@ -1,11 +1,14 @@
 """Telegram message and command handlers."""
 
+import logging
 import re
 
 from aiogram import Dispatcher
 from aiogram.types import Message
 
 import config
+
+logger = logging.getLogger(__name__)
 
 _REEL_PATTERNS: list[tuple[re.Pattern[str], str]] = [
     (re.compile(r"instagram\.com/(?:reel|p|tv)/[\w-]+"), "instagram"),
@@ -26,7 +29,9 @@ def detect_reel(text: str) -> tuple[str, str] | None:
 
 
 async def handle_message(message: Message) -> None:
+    logger.debug("message received from user %s", message.from_user.id if message.from_user else None)
     if message.from_user is None or message.from_user.id != config.TELEGRAM_ALLOWED_USER_ID:
+        logger.debug("ignored: wrong user %s", message.from_user.id if message.from_user else None)
         return
 
     if not message.text:
@@ -34,9 +39,11 @@ async def handle_message(message: Message) -> None:
 
     result = detect_reel(message.text)
     if result is None:
+        logger.debug("no reel URL detected")
         return
 
-    _url, platform = result
+    url, platform = result
+    logger.info("reel detected — %s %s", platform, url)
     await message.answer(f"detected {platform} reel — processing...")
 
 
