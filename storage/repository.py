@@ -3,7 +3,7 @@
 import asyncio
 import logging
 import sqlite3
-from datetime import datetime
+from datetime import datetime, timezone
 
 from pipeline.models import ExtractionResult, Item, ReelMetadata
 
@@ -49,7 +49,7 @@ def _save_reel(
             metadata.platform,
             metadata.author,
             posted_at,
-            datetime.utcnow().isoformat(),
+            datetime.now(timezone.utc).isoformat(),
             metadata.title,
             metadata.caption,
             extraction.transcription,

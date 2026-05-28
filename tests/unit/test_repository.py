@@ -1,45 +1,21 @@
 """Unit tests for storage/repository.py."""
 
 import sqlite3
+import uuid
 from datetime import datetime
 from pathlib import Path
 
 import pytest
 
 from pipeline.models import ExtractionResult, Item, ReelMetadata
+from storage.db import get_connection, init_db
 from storage.repository import find_by_url, save_reel, update_vault_path
 
 
 def make_conn() -> sqlite3.Connection:
-    conn = sqlite3.connect(":memory:", check_same_thread=False)
-    conn.row_factory = sqlite3.Row
-    conn.execute("PRAGMA foreign_keys = ON")
-    conn.execute("""
-        CREATE TABLE IF NOT EXISTS reels (
-            id          INTEGER PRIMARY KEY,
-            source_url  TEXT UNIQUE NOT NULL,
-            platform    TEXT,
-            author      TEXT,
-            posted_at   TEXT,
-            captured_at TEXT DEFAULT CURRENT_TIMESTAMP,
-            title       TEXT,
-            caption     TEXT,
-            transcription TEXT,
-            ocr_text    TEXT,
-            summary     TEXT,
-            vault_note_path TEXT
-        )
-    """)
-    conn.execute("""
-        CREATE TABLE IF NOT EXISTS items (
-            id          INTEGER PRIMARY KEY,
-            reel_id     INTEGER REFERENCES reels(id) ON DELETE CASCADE,
-            name        TEXT NOT NULL,
-            item_type   TEXT,
-            description TEXT
-        )
-    """)
-    return conn
+    db_path = Path(f"file:{uuid.uuid4().hex}?mode=memory&cache=shared")
+    init_db(db_path)
+    return get_connection(db_path)
 
 
 METADATA = ReelMetadata(
