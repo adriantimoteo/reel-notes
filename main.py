@@ -7,6 +7,7 @@ from aiogram import Bot, Dispatcher
 
 import config
 from bot.handlers import register_handlers
+from storage.db import get_connection, init_db
 
 logging.basicConfig(
     level=getattr(logging, config.LOG_LEVEL),
@@ -18,13 +19,16 @@ logger = logging.getLogger(__name__)
 
 
 async def main() -> None:
+    init_db(config.DB_PATH)
+    conn = get_connection(config.DB_PATH)
     bot = Bot(token=config.TELEGRAM_BOT_TOKEN)
     dp = Dispatcher()
-    register_handlers(dp)
+    register_handlers(dp, bot, conn)
     try:
         logger.info("bot started")
         await dp.start_polling(bot)
     finally:
+        conn.close()
         await bot.session.close()
         logger.info("shutdown complete")
 

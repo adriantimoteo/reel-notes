@@ -2,11 +2,14 @@
 
 import logging
 import re
+import sqlite3
 
-from aiogram import Dispatcher
+from aiogram import Bot, Dispatcher
 from aiogram.types import Message
 
 import config
+from bot.status import StatusMessage
+from pipeline import orchestrator
 
 logger = logging.getLogger(__name__)
 
@@ -18,6 +21,9 @@ _REEL_PATTERNS: list[tuple[re.Pattern[str], str]] = [
     (re.compile(r"youtube\.com/watch\?(?:[\w=&]*&)?v=[\w-]+"), "youtube"),
     (re.compile(r"youtu\.be/[\w-]+"), "youtube"),
 ]
+
+_bot: Bot | None = None
+_conn: sqlite3.Connection | None = None
 
 
 def detect_reel(text: str) -> tuple[str, str] | None:
@@ -44,8 +50,14 @@ async def handle_message(message: Message) -> None:
 
     url, platform = result
     logger.info("reel detected — %s %s", platform, url)
-    await message.answer(f"detected {platform} reel — processing...")
+
+    status = StatusMessage(_bot)
+    await status.send(message.chat.id, f"detected {platform} reel — processing...")
+    await orchestrator.run(url, status, _conn)
 
 
-def register_handlers(dp: Dispatcher) -> None:
+def register_handlers(dp: Dispatcher, bot: Bot, conn: sqlite3.Connection) -> None:
+    global _bot, _conn
+    _bot = bot
+    _conn = conn
     dp.message.register(handle_message)
