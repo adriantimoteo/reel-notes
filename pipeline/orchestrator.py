@@ -12,8 +12,10 @@ logger = logging.getLogger(__name__)
 async def run(url: str, status: StatusMessage, conn: sqlite3.Connection) -> None:
     existing = await repository.find_by_url(conn, url)
     if existing:
+        logger.info("duplicate detected — %s", url)
         note_path = existing["vault_note_path"] or "(note not yet written)"
         await status.update(f"already captured · {note_path}")
         return
 
+    logger.info("no duplicate found for %s — pipeline stub", url)
     await status.update("processing not yet implemented")

@@ -7,7 +7,6 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-import bot.handlers as handlers_module
 from bot.handlers import detect_reel, handle_message
 from bot.status import StatusMessage
 from storage.db import get_connection, init_db

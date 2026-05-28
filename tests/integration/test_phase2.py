@@ -6,13 +6,12 @@ from datetime import datetime
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
-import pytest
-
 from bot.handlers import handle_message
 from bot.status import StatusMessage
 from pipeline.models import ExtractionResult, Item, ReelMetadata
 from storage.db import get_connection, init_db
 from storage.repository import save_reel
+from storage import repository
 
 
 def _make_conn() -> sqlite3.Connection:
@@ -135,13 +134,9 @@ async def test_status_send_called_before_orchestrator_run() -> None:
 async def test_duplicate_with_vault_path_shows_path() -> None:
     conn = _make_conn()
     bot = _make_bot()
-    await save_reel(conn, METADATA, EXTRACTION)
+    reel_id = await save_reel(conn, METADATA, EXTRACTION)
     vault_path = "10 Projects/Kyoto/reel.md"
-    conn.execute(
-        "UPDATE reels SET vault_note_path = ? WHERE source_url = ?",
-        (vault_path, REEL_URL),
-    )
-    conn.commit()
+    await repository.update_vault_path(conn, reel_id, vault_path)
 
     msg = _make_message(ALLOWED_ID, REEL_URL)
 
