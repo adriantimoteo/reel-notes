@@ -9,8 +9,11 @@ Coding instructions for this project. Read this fully before writing any code.
 - Work **one ticket at a time** — tickets are in `./Tickets/` in the vault
 - Each ticket is implemented in its **own git branch** (e.g. `ticket/P01T01-project-scaffold`)
 - Spawn a **dev agent** for each ticket implementation
-- Before merging to `main`, spawn a separate **code review agent** to do a thorough review against the ticket's acceptance criteria
+- After dev agent completes: update the ticket file with what was done and set `status: dev-complete`
+- Spawn a separate **code review agent** to do a thorough review against the ticket's acceptance criteria
+- After code review agent completes: update the ticket file with the review findings
 - Code is **only merged to `main` after all acceptance criteria pass** and the review is clean
+- After merge: set `status: done` in the ticket file
 
 ---
 
