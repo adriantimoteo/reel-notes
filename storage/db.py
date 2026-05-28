@@ -11,7 +11,7 @@ def get_connection(db_path: Path) -> sqlite3.Connection:
     logger.debug(f"opening connection to {db_path}")
     path_str = str(db_path)
     is_uri = path_str.startswith("file:")
-    conn = sqlite3.connect(path_str, uri=is_uri)
+    conn = sqlite3.connect(path_str, uri=is_uri, check_same_thread=False)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys = ON")
     return conn
