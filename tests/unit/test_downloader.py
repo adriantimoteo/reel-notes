@@ -122,3 +122,15 @@ def test_fetch_info_returns_tags_in_info_dict(mock_ydl_class: MagicMock, monkeyp
     result = _fetch_info("https://www.instagram.com/reel/abc/")
 
     assert result["tags"] == ["tokyo", "food"]
+
+
+@patch("pipeline.downloader.yt_dlp.YoutubeDL")
+def test_fetch_info_absent_tags_defaults_to_empty_list(mock_ydl_class: MagicMock, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(config, "MAX_VIDEO_DURATION_SECONDS", 120)
+    mock_instance = MagicMock()
+    mock_ydl_class.return_value.__enter__.return_value = mock_instance
+    mock_instance.extract_info.return_value = {"duration": 45}
+
+    result = _fetch_info("https://www.instagram.com/reel/abc/")
+
+    assert result["tags"] == []

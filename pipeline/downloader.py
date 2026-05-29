@@ -57,5 +57,6 @@ def _fetch_info(url: str) -> dict:
     duration = info.get("duration", 0)
     if duration > config.MAX_VIDEO_DURATION_SECONDS:
         raise DurationCapExceeded(duration=duration, cap=config.MAX_VIDEO_DURATION_SECONDS)
+    info.setdefault("tags", [])
     logger.debug("fetched info for %s: duration=%ss", url, duration)
     return info
