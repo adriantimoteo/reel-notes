@@ -36,7 +36,7 @@ def canonicalize(url: str, platform: str) -> str:
         query_params = urllib.parse.parse_qs(parsed.query)
         kept = {"v": query_params["v"]} if "v" in query_params else {}
         new_query = urllib.parse.urlencode(kept, doseq=True)
-        canonical = parsed._replace(query=new_query)
+        canonical = parsed._replace(query=new_query, fragment="")
     else:
         canonical = parsed._replace(query="", fragment="")
 

@@ -54,5 +54,11 @@ def test_canonicalize_youtube_shorts_strips_params() -> None:
     assert result == "https://www.youtube.com/shorts/ID"
 
 
+def test_canonicalize_youtu_be_strips_params() -> None:
+    url = "https://youtu.be/ABC123?si=xyz"
+    result = canonicalize(url, "youtube")
+    assert result == "https://youtu.be/ABC123"
+
+
 def test_unsupported_platform_error_is_subclass_of_reel_capture_error() -> None:
     assert issubclass(UnsupportedPlatformError, ReelCaptureError)
