@@ -81,23 +81,33 @@ async def test_duplicate_url_status_contains_already_captured() -> None:
     assert "already captured" in updated_text
 
 
-# --- AC2: fresh URL → status updated with "not yet implemented" ---
+# --- AC2: fresh URL → orchestrator proceeds to download stage ---
 
-async def test_fresh_url_status_contains_not_yet_implemented() -> None:
+async def test_fresh_url_proceeds_to_download() -> None:
     conn = _make_conn()
     bot = _make_bot()
+    fetch_result = ReelMetadata(
+        source_url="instagram.com/reel/brand_new",
+        platform="instagram",
+        author="Author",
+        posted_at=None,
+        title="New Reel",
+        caption=None,
+        video_path=Path("/tmp/new.mp4"),
+    )
 
     msg = _make_message(ALLOWED_ID, "https://www.instagram.com/reel/brand_new/")
 
     with patch("bot.handlers.config") as mock_cfg, \
          patch("bot.handlers._bot", bot), \
-         patch("bot.handlers._conn", conn):
+         patch("bot.handlers._conn", conn), \
+         patch("pipeline.orchestrator.downloader.fetch", AsyncMock(return_value=fetch_result)):
         mock_cfg.TELEGRAM_ALLOWED_USER_ID = ALLOWED_ID
         await handle_message(msg)
 
-    bot.edit_message_text.assert_called_once()
-    updated_text: str = bot.edit_message_text.call_args[0][0]
-    assert "not yet implemented" in updated_text
+    calls = [call[0][0] for call in bot.edit_message_text.call_args_list]
+    assert any("downloading" in c for c in calls)
+    assert any("New Reel" in c for c in calls)
 
 
 # --- AC3: StatusMessage.send is called before orchestrator.run ---
