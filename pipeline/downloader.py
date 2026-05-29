@@ -3,7 +3,10 @@
 import logging
 import urllib.parse
 
-from pipeline.exceptions import UnsupportedPlatformError
+import yt_dlp
+
+import config
+from pipeline.exceptions import DurationCapExceeded, UnsupportedPlatformError
 
 logger = logging.getLogger(__name__)
 
@@ -41,3 +44,18 @@ def canonicalize(url: str, platform: str) -> str:
         canonical = parsed._replace(query="", fragment="")
 
     return urllib.parse.urlunparse(canonical)
+
+
+def _fetch_info(url: str) -> dict:
+    ydl_opts = {
+        "quiet": True,
+        "no_warnings": True,
+        "skip_download": True,
+    }
+    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+        info = ydl.extract_info(url, download=False)
+    duration = info.get("duration", 0)
+    if duration > config.MAX_VIDEO_DURATION_SECONDS:
+        raise DurationCapExceeded(duration=duration, cap=config.MAX_VIDEO_DURATION_SECONDS)
+    logger.debug("fetched info for %s: duration=%ss", url, duration)
+    return info

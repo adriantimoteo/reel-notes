@@ -1,9 +1,12 @@
-"""Unit tests for pipeline/downloader.py — P03T01 scope."""
+"""Unit tests for pipeline/downloader.py — P03T01 and P03T02 scope."""
+
+from unittest.mock import MagicMock, patch
 
 import pytest
 
-from pipeline.downloader import canonicalize, detect_platform
-from pipeline.exceptions import ReelCaptureError, UnsupportedPlatformError
+import config
+from pipeline.downloader import _fetch_info, canonicalize, detect_platform
+from pipeline.exceptions import DurationCapExceeded, ReelCaptureError, UnsupportedPlatformError
 
 
 @pytest.mark.parametrize(
@@ -62,3 +65,60 @@ def test_canonicalize_youtu_be_strips_params() -> None:
 
 def test_unsupported_platform_error_is_subclass_of_reel_capture_error() -> None:
     assert issubclass(UnsupportedPlatformError, ReelCaptureError)
+
+
+# --- P03T02: _fetch_info and DurationCapExceeded ---
+
+
+def test_duration_cap_exceeded_is_subclass_of_reel_capture_error() -> None:
+    assert issubclass(DurationCapExceeded, ReelCaptureError)
+
+
+@patch("pipeline.downloader.yt_dlp.YoutubeDL")
+def test_fetch_info_calls_extract_info_with_download_false(mock_ydl_class: MagicMock) -> None:
+    mock_instance = MagicMock()
+    mock_ydl_class.return_value.__enter__.return_value = mock_instance
+    mock_instance.extract_info.return_value = {"duration": 60, "tags": []}
+
+    result = _fetch_info("https://www.youtube.com/shorts/abc")
+
+    mock_instance.extract_info.assert_called_once_with("https://www.youtube.com/shorts/abc", download=False)
+    assert result == {"duration": 60, "tags": []}
+
+
+@patch("pipeline.downloader.yt_dlp.YoutubeDL")
+def test_fetch_info_raises_duration_cap_exceeded_when_over_limit(mock_ydl_class: MagicMock, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(config, "MAX_VIDEO_DURATION_SECONDS", 120)
+    mock_instance = MagicMock()
+    mock_ydl_class.return_value.__enter__.return_value = mock_instance
+    mock_instance.extract_info.return_value = {"duration": 180, "tags": []}
+
+    with pytest.raises(DurationCapExceeded) as exc_info:
+        _fetch_info("https://www.youtube.com/shorts/abc")
+
+    assert exc_info.value.duration == 180
+    assert exc_info.value.cap == 120
+
+
+@patch("pipeline.downloader.yt_dlp.YoutubeDL")
+def test_fetch_info_returns_info_when_within_limit(mock_ydl_class: MagicMock, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(config, "MAX_VIDEO_DURATION_SECONDS", 120)
+    mock_instance = MagicMock()
+    mock_ydl_class.return_value.__enter__.return_value = mock_instance
+    mock_instance.extract_info.return_value = {"duration": 60, "tags": []}
+
+    result = _fetch_info("https://www.youtube.com/shorts/abc")
+
+    assert result == {"duration": 60, "tags": []}
+
+
+@patch("pipeline.downloader.yt_dlp.YoutubeDL")
+def test_fetch_info_returns_tags_in_info_dict(mock_ydl_class: MagicMock, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(config, "MAX_VIDEO_DURATION_SECONDS", 120)
+    mock_instance = MagicMock()
+    mock_ydl_class.return_value.__enter__.return_value = mock_instance
+    mock_instance.extract_info.return_value = {"duration": 45, "tags": ["tokyo", "food"]}
+
+    result = _fetch_info("https://www.instagram.com/reel/abc/")
+
+    assert result["tags"] == ["tokyo", "food"]
