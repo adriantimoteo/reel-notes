@@ -98,16 +98,18 @@ async def test_fresh_url_proceeds_to_download() -> None:
 
     msg = _make_message(ALLOWED_ID, "https://www.instagram.com/reel/brand_new/")
 
+    stub_extraction = ExtractionResult(transcription="", ocr_text="", summary="stub", items=[])
     with patch("bot.handlers.config") as mock_cfg, \
          patch("bot.handlers._bot", bot), \
          patch("bot.handlers._conn", conn), \
-         patch("pipeline.orchestrator.downloader.fetch", AsyncMock(return_value=fetch_result)):
+         patch("pipeline.orchestrator.downloader.fetch", AsyncMock(return_value=fetch_result)), \
+         patch("pipeline.orchestrator.extractor.extract", AsyncMock(return_value=stub_extraction)):
         mock_cfg.TELEGRAM_ALLOWED_USER_ID = ALLOWED_ID
         await handle_message(msg)
 
     calls = [call[0][0] for call in bot.edit_message_text.call_args_list]
     assert any("downloading" in c for c in calls)
-    assert any("New Reel" in c for c in calls)
+    assert any("extracting" in c for c in calls)
 
 
 # --- AC3: StatusMessage.send is called before orchestrator.run ---

@@ -84,3 +84,15 @@ async def update_vault_path(
     conn: sqlite3.Connection, reel_id: int, vault_note_path: str
 ) -> None:
     await asyncio.to_thread(_update_vault_path, conn, reel_id, vault_note_path)
+
+
+def _update_extraction(conn: sqlite3.Connection, reel_id: int, extraction: ExtractionResult) -> None:
+    conn.execute(
+        "UPDATE reels SET transcription=?, ocr_text=?, summary=? WHERE id=?",
+        (extraction.transcription, extraction.ocr_text, extraction.summary, reel_id),
+    )
+    conn.commit()
+
+
+async def update_extraction(conn: sqlite3.Connection, reel_id: int, extraction: ExtractionResult) -> None:
+    await asyncio.to_thread(_update_extraction, conn, reel_id, extraction)

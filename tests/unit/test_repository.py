@@ -9,7 +9,7 @@ import pytest
 
 from pipeline.models import ExtractionResult, Item, ReelMetadata
 from storage.db import get_connection, init_db
-from storage.repository import find_by_url, save_reel, update_vault_path
+from storage.repository import find_by_url, save_reel, update_extraction, update_vault_path
 
 
 def make_conn() -> sqlite3.Connection:
@@ -87,3 +87,53 @@ async def test_save_reel_duplicate_url_raises_integrity_error() -> None:
     await save_reel(conn, METADATA, EXTRACTION)
     with pytest.raises(sqlite3.IntegrityError):
         await save_reel(conn, METADATA, EXTRACTION)
+
+
+async def test_update_extraction_persists_fields() -> None:
+    conn = make_conn()
+    empty = ExtractionResult(transcription="", ocr_text="", summary="")
+    reel_id = await save_reel(conn, METADATA, empty)
+    updated = ExtractionResult(
+        transcription="new transcription",
+        ocr_text="new ocr",
+        summary="new summary",
+        items=[],
+    )
+    await update_extraction(conn, reel_id, updated)
+    row = await find_by_url(conn, METADATA.source_url)
+    assert row is not None
+    assert row["transcription"] == "new transcription"
+    assert row["ocr_text"] == "new ocr"
+    assert row["summary"] == "new summary"
+
+
+async def test_update_extraction_only_affects_target_reel() -> None:
+    conn = make_conn()
+    empty = ExtractionResult(transcription="", ocr_text="", summary="")
+    reel_id = await save_reel(conn, METADATA, empty)
+
+    other_metadata = ReelMetadata(
+        source_url="https://www.instagram.com/reel/other999/",
+        platform="instagram",
+        author="other_author",
+        posted_at=None,
+        title="Other reel",
+        caption=None,
+        video_path=Path("/tmp/other999.mp4"),
+        hashtags=[],
+    )
+    await save_reel(conn, other_metadata, empty)
+
+    updated = ExtractionResult(
+        transcription="only for first",
+        ocr_text="only for first ocr",
+        summary="only for first summary",
+        items=[],
+    )
+    await update_extraction(conn, reel_id, updated)
+
+    other_row = await find_by_url(conn, other_metadata.source_url)
+    assert other_row is not None
+    assert other_row["transcription"] == ""
+    assert other_row["ocr_text"] == ""
+    assert other_row["summary"] == ""

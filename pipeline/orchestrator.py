@@ -4,7 +4,7 @@ import logging
 import sqlite3
 
 from bot.status import StatusMessage
-from pipeline import downloader
+from pipeline import downloader, extractor
 from pipeline.exceptions import DurationCapExceeded
 from pipeline.models import ExtractionResult
 from storage import repository
@@ -32,6 +32,23 @@ async def run(url: str, status: StatusMessage, conn: sqlite3.Connection) -> None
         await status.update(f"download failed · {e}")
         return
 
-    await repository.save_reel(conn, metadata, ExtractionResult(transcription="", ocr_text="", summary=""))
+    reel_id = await repository.save_reel(conn, metadata, ExtractionResult(transcription="", ocr_text="", summary=""))
     logger.info("download complete for %s", url)
-    await status.update(f"downloaded · {metadata.title or url} by {metadata.author or 'unknown'} · {metadata.video_path.name}")
+    await status.update("extracting…")
+
+    try:
+        extraction = await extractor.extract(metadata)
+    except Exception as e:
+        await status.update(f"extraction failed · {e}")
+        return
+    finally:
+        try:
+            metadata.video_path.unlink(missing_ok=True)
+        except Exception:
+            pass
+
+    await repository.update_extraction(conn, reel_id, extraction)
+    logger.info("extraction complete for %s", url)
+
+    item_names = ", ".join(i.name for i in extraction.items[:3])
+    await status.update(f"extracted · {extraction.summary[:100]}… | items: {item_names or 'none'}")
