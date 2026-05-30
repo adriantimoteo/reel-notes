@@ -7,6 +7,7 @@ from aiogram import Bot, Dispatcher
 
 import config
 from bot.handlers import register_handlers
+from output.writers import LocalFolderWriter
 from storage.db import get_connection, init_db
 
 logging.basicConfig(
@@ -23,7 +24,8 @@ async def main() -> None:
     conn = get_connection(config.DB_PATH)
     bot = Bot(token=config.TELEGRAM_BOT_TOKEN)
     dp = Dispatcher()
-    register_handlers(dp, bot, conn)
+    vault_writer = LocalFolderWriter(config.VAULT_PATH, config.VAULT_NOTES_SUBDIR)
+    register_handlers(dp, bot, conn, vault_writer)
     try:
         logger.info("bot started")
         await dp.start_polling(bot)

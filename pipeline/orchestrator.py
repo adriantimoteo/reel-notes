@@ -1,9 +1,13 @@
 """Pipeline orchestration logic."""
 
+import asyncio
 import logging
 import sqlite3
 
+import config
 from bot.status import StatusMessage
+from output import renderer
+from output.writers import VaultWriter
 from pipeline import downloader, extractor
 from pipeline.exceptions import DurationCapExceeded
 from pipeline.models import ExtractionResult
@@ -12,7 +16,12 @@ from storage import repository
 logger = logging.getLogger(__name__)
 
 
-async def run(url: str, status: StatusMessage, conn: sqlite3.Connection) -> None:
+async def run(
+    url: str,
+    status: StatusMessage,
+    conn: sqlite3.Connection,
+    vault_writer: VaultWriter,
+) -> None:
     if "://" not in url:
         url = "https://" + url
     existing = await repository.find_by_url(conn, url)
@@ -52,5 +61,15 @@ async def run(url: str, status: StatusMessage, conn: sqlite3.Connection) -> None
     await repository.update_extraction(conn, reel_id, extraction)
     logger.info("extraction complete for %s", url)
 
-    item_names = ", ".join(i.name for i in extraction.items[:3])
-    await status.update(f"extracted · {extraction.summary[:100]}… | items: {item_names or 'none'}")
+    try:
+        filename = renderer.generate_filename(metadata)
+        content = renderer.render(metadata, extraction)
+        note_path = await asyncio.to_thread(vault_writer.write, filename, content)
+        await repository.update_vault_path(conn, reel_id, str(note_path.relative_to(config.VAULT_PATH)))
+    except Exception as e:
+        logger.error("save failed for %s: %s", url, e)
+        await status.update(f"save failed · {e}")
+        return
+
+    logger.info("note saved: %s", note_path.name)
+    await status.update(f"saved · {note_path.name}")
