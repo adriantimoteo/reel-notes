@@ -1,0 +1,9 @@
+{
+    "transcription": "Today we're checking out the best tonkatsu in Tokyo...",
+    "ocr_text": "Maisen Aoyama | Open 11am-10pm",
+    "summary": "A guide to the best tonkatsu in Aoyama, featuring Maisen and tips on ordering.",
+    "items": [
+        {"name": "Tonkatsu Maisen Aoyama", "item_type": "restaurant", "description": "Famous tonkatsu spot known for loin cut and cabbage refills."},
+        {"name": "Shibuya Sky", "item_type": "place", "description": "Observation deck, best visited at sunset."}
+    ]
+}
