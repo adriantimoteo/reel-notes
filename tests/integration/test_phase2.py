@@ -57,6 +57,7 @@ EXTRACTION = ExtractionResult(
     transcription="test transcription",
     ocr_text="test ocr",
     summary="test summary",
+    title="Phase Two Test Reel",
     items=[],
 )
 
@@ -98,7 +99,7 @@ async def test_fresh_url_proceeds_to_download() -> None:
 
     msg = _make_message(ALLOWED_ID, "https://www.instagram.com/reel/brand_new/")
 
-    stub_extraction = ExtractionResult(transcription="", ocr_text="", summary="stub", items=[])
+    stub_extraction = ExtractionResult(transcription="", ocr_text="", summary="stub", title="stub", items=[])
     with patch("bot.handlers.config") as mock_cfg, \
          patch("bot.handlers._bot", bot), \
          patch("bot.handlers._conn", conn), \

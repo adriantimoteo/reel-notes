@@ -13,6 +13,7 @@ logger = logging.getLogger(__name__)
 EXTRACTION_SCHEMA = {
     "type": "object",
     "properties": {
+        "title": {"type": "string"},
         "transcription": {"type": "string"},
         "ocr_text": {"type": "string"},
         "summary": {"type": "string"},
@@ -32,12 +33,13 @@ EXTRACTION_SCHEMA = {
             },
         },
     },
-    "required": ["transcription", "ocr_text", "summary", "items"],
+    "required": ["title", "transcription", "ocr_text", "summary", "items"],
 }
 
 
 def parse_extraction_response(raw: dict) -> ExtractionResult:
     return ExtractionResult(
+        title=raw["title"],
         transcription=raw["transcription"],
         ocr_text=raw["ocr_text"],
         summary=raw["summary"],
@@ -64,6 +66,7 @@ def _extract_sync(metadata: ReelMetadata) -> ExtractionResult:
     prompt = (
         "Analyse this video and return a structured JSON response.\n"
         "Extract:\n"
+        "- title: short 3-5 word title describing what the video is about\n"
         "- transcription: verbatim audio transcription\n"
         "- ocr_text: all visible on-screen text\n"
         "- summary: 2-3 sentence summary of what the video is about\n"

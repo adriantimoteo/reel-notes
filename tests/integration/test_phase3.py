@@ -17,6 +17,7 @@ _STUB_EXTRACTION = ExtractionResult(
     transcription="stub",
     ocr_text="stub ocr",
     summary="stub summary",
+    title="stub",
     items=[],
 )
 
@@ -64,6 +65,7 @@ EXTRACTION = ExtractionResult(
     transcription="test transcription",
     ocr_text="test ocr",
     summary="test summary",
+    title="Phase Three Test Reel",
     items=[],
 )
 

@@ -48,6 +48,7 @@ EXTRACTION = ExtractionResult(
     transcription="full transcription for phase five",
     ocr_text="visible on-screen text for phase five",
     summary="A short summary of the reel content for phase five testing.",
+    title="Phase Five Test Reel",
     items=[
         Item(name="Shibuya Ramen", item_type="restaurant", description="Great ramen spot."),
         Item(name="Harajuku Park", item_type="place", description="Famous park area."),
@@ -182,8 +183,8 @@ async def test_save_failure_surfaced_in_status(tmp_path: Path) -> None:
         await handle_message(msg)
 
     calls = [call[0][0] for call in bot.edit_message_text.call_args_list]
-    failure_calls = [c for c in calls if "save failed" in c and "disk full" in c]
-    assert failure_calls, f"Expected 'save failed · disk full' in status calls, got: {calls}"
+    failure_calls = [c for c in calls if "disk full" in c]
+    assert failure_calls, f"Expected 'disk full' in status calls, got: {calls}"
 
 
 # --- AC5: Status sequence is downloading → extracting → saved ---

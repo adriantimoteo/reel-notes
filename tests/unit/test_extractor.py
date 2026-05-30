@@ -13,6 +13,7 @@ def test_parse_extraction_response_from_fixture() -> None:
     fixture = json.loads(FIXTURE_PATH.read_text())
     result = parse_extraction_response(fixture)
 
+    assert result.title == fixture["title"]
     assert result.transcription == fixture["transcription"]
     assert result.ocr_text == fixture["ocr_text"]
     assert result.summary == fixture["summary"]
@@ -25,13 +26,13 @@ def test_parse_extraction_response_from_fixture() -> None:
 
 def test_parse_extraction_response_empty_items() -> None:
     result = parse_extraction_response(
-        {"transcription": "", "ocr_text": "", "summary": "", "items": []}
+        {"title": "", "transcription": "", "ocr_text": "", "summary": "", "items": []}
     )
     assert result.items == []
 
 
 def test_extraction_schema_top_level_required() -> None:
-    assert EXTRACTION_SCHEMA["required"] == ["transcription", "ocr_text", "summary", "items"]
+    assert EXTRACTION_SCHEMA["required"] == ["title", "transcription", "ocr_text", "summary", "items"]
 
 
 def test_extraction_schema_item_required() -> None:

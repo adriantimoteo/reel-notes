@@ -4,19 +4,20 @@ import logging
 import re
 from datetime import datetime, timezone
 
-from pipeline.models import ExtractionResult, Item, ReelMetadata
+from pipeline.models import ExtractionResult, ReelMetadata
 
 logger = logging.getLogger(__name__)
 
 
-def generate_filename(metadata: ReelMetadata, captured_at: datetime | None = None) -> str:
+def generate_filename(
+    metadata: ReelMetadata,
+    extraction: ExtractionResult,
+    captured_at: datetime | None = None,
+) -> str:
     ts = captured_at if captured_at is not None else datetime.now(timezone.utc)
     timestamp = ts.strftime("%Y%m%d%H%M%S")
-
-    author = metadata.author if metadata.author is not None else "unknown"
-    slug = re.sub(r"[^a-z0-9]", "-", author.lower())[:30]
-
-    return f"{metadata.platform}-{slug}-{timestamp}.md"
+    slug = re.sub(r"[^a-z0-9]+", "-", extraction.title.lower()).strip("-")[:40]
+    return f"{slug}-{timestamp}.md"
 
 
 def render(

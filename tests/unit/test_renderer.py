@@ -27,6 +27,7 @@ def _make_extraction(**overrides) -> ExtractionResult:
         transcription="Today we visit the best ramen spots in Tokyo.",
         ocr_text="Ichiran Ramen | Open 24h",
         summary="A tour of Tokyo's best ramen restaurants.",
+        title="Best Tokyo Ramen Tour",
         items=[
             Item(name="Ichiran Ramen", item_type="restaurant", description="Famous solo-booth ramen chain."),
         ],
@@ -39,16 +40,18 @@ CAPTURED_AT = datetime(2026, 5, 27, 14, 30, 12, tzinfo=timezone.utc)
 
 
 def test_generate_filename_format() -> None:
-    metadata = _make_metadata(platform="instagram", author="Travel.Jane")
-    result = generate_filename(metadata, captured_at=CAPTURED_AT)
-    assert result.startswith("instagram-travel-jane-")
+    metadata = _make_metadata()
+    extraction = _make_extraction(title="Best Tokyo Ramen Tour")
+    result = generate_filename(metadata, extraction, captured_at=CAPTURED_AT)
+    assert result.startswith("best-tokyo-ramen-tour-")
     assert result.endswith(".md")
 
 
-def test_generate_filename_unknown_author() -> None:
-    metadata = _make_metadata(author=None)
-    result = generate_filename(metadata, captured_at=CAPTURED_AT)
-    assert "unknown" in result
+def test_generate_filename_timestamp() -> None:
+    metadata = _make_metadata()
+    extraction = _make_extraction(title="Some Title")
+    result = generate_filename(metadata, extraction, captured_at=CAPTURED_AT)
+    assert "20260527143012" in result
 
 
 def test_render_matches_fixture() -> None:

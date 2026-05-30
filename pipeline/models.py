@@ -27,4 +27,5 @@ class ExtractionResult:
     transcription: str
     ocr_text: str
     summary: str
+    title: str
     items: list[Item] = field(default_factory=list)

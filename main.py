@@ -2,6 +2,7 @@
 
 import asyncio
 import logging
+from pathlib import Path
 
 from aiogram import Bot, Dispatcher
 
@@ -19,7 +20,60 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
+def validate_config() -> None:
+    errors = []
+
+    if not config.VAULT_PATH.exists():
+        errors.append(f"VAULT_PATH does not exist: {config.VAULT_PATH}")
+    elif not config.VAULT_PATH.is_dir():
+        errors.append(f"VAULT_PATH is not a directory: {config.VAULT_PATH}")
+
+    db_parent = config.DB_PATH.parent
+    if not db_parent.exists():
+        errors.append(f"DB_PATH parent directory does not exist: {db_parent}")
+
+    temp_parent = config.DOWNLOAD_TEMP_DIR.parent
+    if not temp_parent.exists():
+        errors.append(f"DOWNLOAD_TEMP_DIR parent does not exist: {temp_parent}")
+
+    if errors:
+        for err in errors:
+            print(f"[config error] {err}", flush=True)
+        raise SystemExit(1)
+
+
+def _redact(secret: str) -> str:
+    return f"****...{secret[-4:]}" if len(secret) >= 4 else "****"
+
+
+def log_startup_config() -> None:
+    print("[startup] reel-capture-bot", flush=True)
+    print(f"[startup] vault:    {config.VAULT_PATH}", flush=True)
+    print(f"[startup] db:       {config.DB_PATH}", flush=True)
+    print(f"[startup] temp dir: {config.DOWNLOAD_TEMP_DIR}", flush=True)
+    print(f"[startup] max dur:  {config.MAX_VIDEO_DURATION_SECONDS}s", flush=True)
+    print(f"[startup] bot token: {_redact(config.TELEGRAM_BOT_TOKEN)}", flush=True)
+    print(f"[startup] gemini key: {_redact(config.GEMINI_API_KEY)}", flush=True)
+    print(f"[startup] allowed user: {config.TELEGRAM_ALLOWED_USER_ID}", flush=True)
+
+
+def cleanup_temp_dir(temp_dir: Path) -> int:
+    """Delete stale video files. Returns count of files removed."""
+    temp_dir.mkdir(parents=True, exist_ok=True)
+    removed = 0
+    for ext in ("*.mp4", "*.webm", "*.mkv", "*.m4v"):
+        for f in temp_dir.glob(ext):
+            f.unlink(missing_ok=True)
+            removed += 1
+    return removed
+
+
 async def main() -> None:
+    validate_config()
+    log_startup_config()
+    n = cleanup_temp_dir(config.DOWNLOAD_TEMP_DIR)
+    logger.info("cleaned up %d stale temp files", n)
+
     init_db(config.DB_PATH)
     conn = get_connection(config.DB_PATH)
     bot = Bot(token=config.TELEGRAM_BOT_TOKEN)

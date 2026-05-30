@@ -33,6 +33,7 @@ EXTRACTION = ExtractionResult(
     transcription="Welcome to Kyoto. Here are my favourite spots.",
     ocr_text="Fushimi Inari — open 24 hours",
     summary="A guide to hidden gems in Kyoto including temples and food spots.",
+    title="Kyoto Hidden Gems Guide",
     items=[
         Item(name="Fushimi Inari", item_type="place", description="Famous torii gates, best at dawn."),
         Item(name="Nishiki Market", item_type="place", description="Street food and fresh produce."),
@@ -91,12 +92,13 @@ async def test_save_reel_duplicate_url_raises_integrity_error() -> None:
 
 async def test_update_extraction_persists_fields() -> None:
     conn = make_conn()
-    empty = ExtractionResult(transcription="", ocr_text="", summary="")
+    empty = ExtractionResult(transcription="", ocr_text="", summary="", title="")
     reel_id = await save_reel(conn, METADATA, empty)
     updated = ExtractionResult(
         transcription="new transcription",
         ocr_text="new ocr",
         summary="new summary",
+        title="Updated Title",
         items=[],
     )
     await update_extraction(conn, reel_id, updated)
@@ -109,7 +111,7 @@ async def test_update_extraction_persists_fields() -> None:
 
 async def test_update_extraction_only_affects_target_reel() -> None:
     conn = make_conn()
-    empty = ExtractionResult(transcription="", ocr_text="", summary="")
+    empty = ExtractionResult(transcription="", ocr_text="", summary="", title="")
     reel_id = await save_reel(conn, METADATA, empty)
 
     other_metadata = ReelMetadata(
@@ -128,6 +130,7 @@ async def test_update_extraction_only_affects_target_reel() -> None:
         transcription="only for first",
         ocr_text="only for first ocr",
         summary="only for first summary",
+        title="Only For First",
         items=[],
     )
     await update_extraction(conn, reel_id, updated)

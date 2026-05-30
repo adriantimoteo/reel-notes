@@ -125,6 +125,7 @@ class TestExtractionResult:
             transcription="Check out this amazing bakery.",
             ocr_text="TARTINE BAKERY",
             summary="A visit to a famous San Francisco bakery.",
+            title="Famous SF Bakery Visit",
             items=items,
         )
         assert result.transcription == "Check out this amazing bakery."
@@ -138,6 +139,7 @@ class TestExtractionResult:
             transcription="Some spoken words.",
             ocr_text="",
             summary="A short summary.",
+            title="Short Summary",
         )
         assert result.items == []
 
@@ -147,13 +149,14 @@ class TestExtractionResult:
             transcription="Visit Dolores Park.",
             ocr_text="DOLORES PARK",
             summary="Park recommendation.",
+            title="Dolores Park Guide",
             items=[item],
         )
         assert isinstance(result.items, list)
         assert all(isinstance(i, Item) for i in result.items)
 
     def test_items_default_is_not_shared(self):
-        r1 = ExtractionResult(transcription="a", ocr_text="", summary="s")
-        r2 = ExtractionResult(transcription="b", ocr_text="", summary="s")
+        r1 = ExtractionResult(transcription="a", ocr_text="", summary="s", title="t")
+        r2 = ExtractionResult(transcription="b", ocr_text="", summary="s", title="t")
         r1.items.append(Item(name="X", item_type="tip", description="tip"))
         assert r2.items == []

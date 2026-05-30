@@ -58,6 +58,7 @@ EXTRACTION = ExtractionResult(
     transcription="full transcription text",
     ocr_text="visible on-screen text",
     summary="A short summary of the reel content for phase four testing.",
+    title="Phase Four Test Reel",
     items=[
         Item(name="Tokyo Ramen", item_type="restaurant", description="Great ramen spot."),
         Item(name="Shibuya Crossing", item_type="place", description="Famous crossing."),
