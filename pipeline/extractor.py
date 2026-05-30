@@ -1,6 +1,11 @@
+import asyncio
+import json
 import logging
 
-from pipeline.models import ExtractionResult, Item
+import google.genai as genai
+
+import config
+from pipeline.models import ExtractionResult, Item, ReelMetadata
 
 logger = logging.getLogger(__name__)
 
@@ -44,3 +49,37 @@ def parse_extraction_response(raw: dict) -> ExtractionResult:
             for item in raw.get("items", [])
         ],
     )
+
+
+def _extract_sync(metadata: ReelMetadata) -> ExtractionResult:
+    client = genai.Client(api_key=config.GEMINI_API_KEY)
+
+    video_file = client.files.upload(path=metadata.video_path)
+
+    caption_block = f"\nCaption: {metadata.caption}" if metadata.caption else ""
+    prompt = (
+        "Analyse this video and return a structured JSON response.\n"
+        "Extract:\n"
+        "- transcription: verbatim audio transcription\n"
+        "- ocr_text: all visible on-screen text\n"
+        "- summary: 2-3 sentence summary of what the video is about\n"
+        "- items: list of places, restaurants, activities, or tips mentioned"
+        f"{caption_block}"
+    )
+
+    response = client.models.generate_content(
+        model="gemini-2.5-flash",
+        contents=[video_file, prompt],
+        config=genai.types.GenerateContentConfig(
+            response_mime_type="application/json",
+            response_schema=EXTRACTION_SCHEMA,
+        ),
+    )
+
+    logger.info("extraction complete for %s", metadata.source_url)
+    raw = json.loads(response.text)
+    return parse_extraction_response(raw)
+
+
+async def extract(metadata: ReelMetadata) -> ExtractionResult:
+    return await asyncio.to_thread(_extract_sync, metadata)
