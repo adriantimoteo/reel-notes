@@ -13,6 +13,13 @@ from pipeline.models import ExtractionResult, Item, ReelMetadata
 from storage.db import get_connection, init_db
 from storage.repository import save_reel
 
+_STUB_EXTRACTION = ExtractionResult(
+    transcription="stub",
+    ocr_text="stub ocr",
+    summary="stub summary",
+    items=[],
+)
+
 
 def _make_conn() -> sqlite3.Connection:
     db_path = Path(f"file:{uuid.uuid4().hex}?mode=memory&cache=shared")
@@ -81,15 +88,14 @@ async def test_fresh_url_successful_download() -> None:
     with patch("bot.handlers.config") as mock_cfg, \
          patch("bot.handlers._bot", bot), \
          patch("bot.handlers._conn", conn), \
-         patch("pipeline.orchestrator.downloader.fetch", AsyncMock(return_value=fetch_result)):
+         patch("pipeline.orchestrator.downloader.fetch", AsyncMock(return_value=fetch_result)), \
+         patch("pipeline.orchestrator.extractor.extract", AsyncMock(return_value=_STUB_EXTRACTION)):
         mock_cfg.TELEGRAM_ALLOWED_USER_ID = ALLOWED_ID
         await handle_message(msg)
 
     calls = [call[0][0] for call in bot.edit_message_text.call_args_list]
     assert any("downloading" in c for c in calls)
-    last_call = calls[-1]
-    assert "Ramen Tour" in last_call
-    assert "FoodGuy" in last_call
+    assert any("extracting" in c for c in calls)
 
 
 # --- AC2: DurationCapExceeded raises → status updated with duration and cap ---
@@ -189,7 +195,8 @@ async def test_status_ordering_send_before_downloading_before_final() -> None:
          patch("bot.handlers._conn", conn), \
          patch.object(StatusMessage, "send", tracked_send), \
          patch.object(StatusMessage, "update", tracked_update), \
-         patch("pipeline.orchestrator.downloader.fetch", AsyncMock(return_value=fetch_result)):
+         patch("pipeline.orchestrator.downloader.fetch", AsyncMock(return_value=fetch_result)), \
+         patch("pipeline.orchestrator.extractor.extract", AsyncMock(return_value=_STUB_EXTRACTION)):
         mock_cfg.TELEGRAM_ALLOWED_USER_ID = ALLOWED_ID
         await handle_message(msg)
 
@@ -197,4 +204,6 @@ async def test_status_ordering_send_before_downloading_before_final() -> None:
     downloading_idx = next((i for i, e in enumerate(call_order) if "downloading" in e), None)
     assert downloading_idx is not None, f"'downloading…' update not found in: {call_order}"
     assert downloading_idx > 0, f"'downloading…' should come after 'send', got: {call_order}"
-    assert any("Sushi Night" in e for e in call_order), f"Final update with title not found in: {call_order}"
+    extracting_idx = next((i for i, e in enumerate(call_order) if "extracting" in e), None)
+    assert extracting_idx is not None, f"'extracting…' update not found in: {call_order}"
+    assert extracting_idx > downloading_idx, f"'extracting…' should come after 'downloading…', got: {call_order}"
