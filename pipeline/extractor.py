@@ -54,7 +54,7 @@ def parse_extraction_response(raw: dict) -> ExtractionResult:
 def _extract_sync(metadata: ReelMetadata) -> ExtractionResult:
     client = genai.Client(api_key=config.GEMINI_API_KEY)
 
-    video_file = client.files.upload(path=metadata.video_path)
+    video_file = client.files.upload(file=metadata.video_path)
 
     caption_block = f"\nCaption: {metadata.caption}" if metadata.caption else ""
     prompt = (

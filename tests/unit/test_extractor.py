@@ -78,7 +78,7 @@ async def test_files_upload_called_with_video_path(mock_client_cls: MagicMock, t
     metadata, video_path = _make_metadata(tmp_path)
     await extract(metadata)
 
-    mock_client.files.upload.assert_called_once_with(path=video_path)
+    mock_client.files.upload.assert_called_once_with(file=video_path)
 
 
 @patch("pipeline.extractor.genai.Client")
