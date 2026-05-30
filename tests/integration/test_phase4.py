@@ -11,9 +11,19 @@ import pytest
 
 from bot.handlers import handle_message
 from bot.status import StatusMessage
+from output.writers import VaultWriter
 from pipeline.models import ExtractionResult, Item, ReelMetadata
 from storage.db import get_connection, init_db
 from storage.repository import find_by_url
+
+
+def _make_vault_writer(tmp_path: Path) -> VaultWriter:
+    writer = MagicMock(spec=VaultWriter)
+    note = tmp_path / "notes" / "note.md"
+    note.parent.mkdir(parents=True, exist_ok=True)
+    note.write_text("", encoding="utf-8")
+    writer.write.return_value = note
+    return writer
 
 
 def _make_conn() -> sqlite3.Connection:
@@ -69,9 +79,10 @@ def _make_fetch_result(video_path: Path) -> ReelMetadata:
 
 # --- AC1: Successful extraction — status sequence includes "extracting…" then extracted summary ---
 
-async def test_successful_extraction_status_sequence() -> None:
+async def test_successful_extraction_status_sequence(tmp_path: Path) -> None:
     conn = _make_conn()
     bot = _make_bot()
+    vault_writer = _make_vault_writer(tmp_path)
 
     with tempfile.NamedTemporaryFile(suffix=".mp4", delete=False) as f:
         video_path = Path(f.name)
@@ -82,16 +93,17 @@ async def test_successful_extraction_status_sequence() -> None:
     with patch("bot.handlers.config") as mock_cfg, \
          patch("bot.handlers._bot", bot), \
          patch("bot.handlers._conn", conn), \
+         patch("bot.handlers._vault_writer", vault_writer), \
+         patch("pipeline.orchestrator.config") as mock_orch_cfg, \
          patch("pipeline.orchestrator.downloader.fetch", AsyncMock(return_value=fetch_result)), \
          patch("pipeline.orchestrator.extractor.extract", AsyncMock(return_value=EXTRACTION)):
         mock_cfg.TELEGRAM_ALLOWED_USER_ID = ALLOWED_ID
+        mock_orch_cfg.VAULT_PATH = tmp_path
         await handle_message(msg)
 
     calls = [call[0][0] for call in bot.edit_message_text.call_args_list]
     assert any("extracting" in c for c in calls), f"Expected 'extracting…' in calls: {calls}"
-    last_call = calls[-1]
-    assert "extracted" in last_call, f"Expected 'extracted' in last call: {last_call}"
-    assert EXTRACTION.summary[:20] in last_call, f"Expected summary snippet in last call: {last_call}"
+    assert any("saved" in c for c in calls), f"Expected 'saved' in calls: {calls}"
 
 
 # --- AC2: Extraction failure — status updated with "extraction failed" and the error message ---
@@ -132,9 +144,10 @@ async def test_extraction_failure_status_update() -> None:
 
 # --- AC3: Temp file cleanup on success — file deleted after successful extraction ---
 
-async def test_temp_file_deleted_on_success() -> None:
+async def test_temp_file_deleted_on_success(tmp_path: Path) -> None:
     conn = _make_conn()
     bot = _make_bot()
+    vault_writer = _make_vault_writer(tmp_path)
 
     with tempfile.NamedTemporaryFile(suffix=".mp4", delete=False) as f:
         video_path = Path(f.name)
@@ -156,9 +169,12 @@ async def test_temp_file_deleted_on_success() -> None:
     with patch("bot.handlers.config") as mock_cfg, \
          patch("bot.handlers._bot", bot), \
          patch("bot.handlers._conn", conn), \
+         patch("bot.handlers._vault_writer", vault_writer), \
+         patch("pipeline.orchestrator.config") as mock_orch_cfg, \
          patch("pipeline.orchestrator.downloader.fetch", AsyncMock(return_value=fetch_result_cleanup)), \
          patch("pipeline.orchestrator.extractor.extract", AsyncMock(return_value=EXTRACTION)):
         mock_cfg.TELEGRAM_ALLOWED_USER_ID = ALLOWED_ID
+        mock_orch_cfg.VAULT_PATH = tmp_path
         await handle_message(msg)
 
     assert not video_path.exists(), f"Expected temp file to be deleted, but it still exists: {video_path}"
@@ -200,9 +216,10 @@ async def test_temp_file_deleted_on_extraction_failure() -> None:
 
 # --- AC5: update_extraction called — DB row has populated summary after successful extraction ---
 
-async def test_update_extraction_persists_to_db() -> None:
+async def test_update_extraction_persists_to_db(tmp_path: Path) -> None:
     conn = _make_conn()
     bot = _make_bot()
+    vault_writer = _make_vault_writer(tmp_path)
 
     with tempfile.NamedTemporaryFile(suffix=".mp4", delete=False) as f:
         video_path = Path(f.name)
@@ -222,9 +239,12 @@ async def test_update_extraction_persists_to_db() -> None:
     with patch("bot.handlers.config") as mock_cfg, \
          patch("bot.handlers._bot", bot), \
          patch("bot.handlers._conn", conn), \
+         patch("bot.handlers._vault_writer", vault_writer), \
+         patch("pipeline.orchestrator.config") as mock_orch_cfg, \
          patch("pipeline.orchestrator.downloader.fetch", AsyncMock(return_value=fetch_result_db)), \
          patch("pipeline.orchestrator.extractor.extract", AsyncMock(return_value=EXTRACTION)):
         mock_cfg.TELEGRAM_ALLOWED_USER_ID = ALLOWED_ID
+        mock_orch_cfg.VAULT_PATH = tmp_path
         await handle_message(msg)
 
     stored_url = "instagram.com/reel/p4db1"

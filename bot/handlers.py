@@ -9,6 +9,7 @@ from aiogram.types import Message
 
 import config
 from bot.status import StatusMessage
+from output.writers import VaultWriter
 from pipeline import orchestrator
 
 logger = logging.getLogger(__name__)
@@ -24,6 +25,7 @@ _REEL_PATTERNS: list[tuple[re.Pattern[str], str]] = [
 
 _bot: Bot | None = None
 _conn: sqlite3.Connection | None = None
+_vault_writer: VaultWriter | None = None
 
 
 def detect_reel(text: str) -> tuple[str, str] | None:
@@ -53,11 +55,14 @@ async def handle_message(message: Message) -> None:
 
     status = StatusMessage(_bot)
     await status.send(message.chat.id, f"detected {platform} reel — processing...")
-    await orchestrator.run(url, status, _conn)
+    await orchestrator.run(url, status, _conn, _vault_writer)
 
 
-def register_handlers(dp: Dispatcher, bot: Bot, conn: sqlite3.Connection) -> None:
-    global _bot, _conn
+def register_handlers(
+    dp: Dispatcher, bot: Bot, conn: sqlite3.Connection, vault_writer: VaultWriter
+) -> None:
+    global _bot, _conn, _vault_writer
     _bot = bot
     _conn = conn
+    _vault_writer = vault_writer
     dp.message.register(handle_message)
