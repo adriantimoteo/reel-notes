@@ -12,6 +12,8 @@ logger = logging.getLogger(__name__)
 
 
 async def run(url: str, status: StatusMessage, conn: sqlite3.Connection) -> None:
+    if "://" not in url:
+        url = "https://" + url
     existing = await repository.find_by_url(conn, url)
     if existing:
         logger.info("duplicate detected — %s", url)

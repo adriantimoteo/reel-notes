@@ -40,7 +40,8 @@ def _make_message(user_id: int, text: str) -> MagicMock:
 
 
 ALLOWED_ID = 12345
-REEL_URL = "instagram.com/reel/abc123"
+# Normalized form (with scheme) — what orchestrator stores/looks up after prepending https://
+REEL_URL = "https://instagram.com/reel/abc123"
 
 METADATA = ReelMetadata(
     source_url=REEL_URL,
