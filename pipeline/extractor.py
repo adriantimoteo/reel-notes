@@ -1,6 +1,7 @@
 import asyncio
 import json
 import logging
+import time
 
 import google.genai as genai
 
@@ -55,6 +56,9 @@ def _extract_sync(metadata: ReelMetadata) -> ExtractionResult:
     client = genai.Client(api_key=config.GEMINI_API_KEY)
 
     video_file = client.files.upload(file=metadata.video_path)
+    while video_file.state.name == "PROCESSING":
+        time.sleep(2)
+        video_file = client.files.get(name=video_file.name)
 
     caption_block = f"\nCaption: {metadata.caption}" if metadata.caption else ""
     prompt = (

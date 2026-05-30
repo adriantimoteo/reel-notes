@@ -29,6 +29,7 @@ async def run(url: str, status: StatusMessage, conn: sqlite3.Connection) -> None
         await status.update(f"rejected · video is {e.duration}s, limit is {e.cap}s")
         return
     except Exception as e:
+        logger.error("download failed for %s: %s", url, e)
         await status.update(f"download failed · {e}")
         return
 
@@ -39,6 +40,7 @@ async def run(url: str, status: StatusMessage, conn: sqlite3.Connection) -> None
     try:
         extraction = await extractor.extract(metadata)
     except Exception as e:
+        logger.error("extraction failed for %s: %s", url, e)
         await status.update(f"extraction failed · {e}")
         return
     finally:
