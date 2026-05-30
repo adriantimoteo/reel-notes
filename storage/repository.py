@@ -59,6 +59,7 @@ def _save_reel(
     )
     reel_id = cursor.lastrowid
     _save_items(conn, reel_id, extraction.items)
+    conn.commit()
     return reel_id
 
 
@@ -78,6 +79,7 @@ def _update_vault_path(
         "UPDATE reels SET vault_note_path = ? WHERE id = ?",
         (vault_note_path, reel_id),
     )
+    conn.commit()
 
 
 async def update_vault_path(
