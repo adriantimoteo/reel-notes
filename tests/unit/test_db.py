@@ -20,8 +20,8 @@ def db_path() -> Path:
 
 @pytest.fixture
 def conn(db_path: Path) -> sqlite3.Connection:
-    init_db(db_path)
     c = get_connection(db_path)
+    init_db(db_path)
     yield c
     c.close()
 
@@ -75,8 +75,8 @@ def test_cascade_delete_removes_items(conn: sqlite3.Connection) -> None:
 
 
 def test_init_db_is_idempotent(db_path: Path) -> None:
-    init_db(db_path)
     conn = get_connection(db_path)
+    init_db(db_path)
     conn.execute(
         "INSERT INTO reels (source_url) VALUES (?)", ("https://example.com/reel/3",)
     )

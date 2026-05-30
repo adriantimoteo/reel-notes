@@ -19,7 +19,7 @@ from pipeline.exceptions import (
     VaultWriteError,
 )
 from pipeline.models import ExtractionResult, Item, ReelMetadata
-from pipeline.orchestrator import ERROR_MESSAGES, run
+from pipeline.orchestrator import run
 from bot.status import StatusMessage
 from storage.db import get_connection, init_db
 
@@ -67,32 +67,19 @@ def test_all_are_subclass_of_reel_capture_error(exc_cls, kwargs) -> None:
     assert isinstance(exc, ReelCaptureError)
 
 
-# --- AC1: ERROR_MESSAGES maps each type to the expected message fragment ---
-
-@pytest.mark.parametrize("exc,expected_fragment", [
-    (UnsupportedPlatformError(url="https://x.com"), "unsupported URL"),
-    (DurationCapExceeded(duration=300, cap=120), "rejected"),
-    (DownloadError(url="https://x.com", cause=Exception("net")), "download failed"),
-    (ExtractionError(cause=Exception("quota")), "extraction failed"),
-    (StorageError(cause=Exception("disk")), "save failed"),
-    (VaultWriteError(path="note.md", cause=Exception("perm")), "vault write failed"),
-    (ReelCaptureError("something odd"), "pipeline error"),
-])
-def test_error_message_mapping(exc, expected_fragment) -> None:
-    for exc_type, msg_fn in ERROR_MESSAGES.items():
-        if isinstance(exc, exc_type):
-            msg = msg_fn(exc)
-            assert expected_fragment in msg, f"Expected '{expected_fragment}' in '{msg}'"
-            return
-    pytest.fail(f"No mapping found for {type(exc).__name__}")
+# --- AC1: dispatch produces the expected status message fragment per exception type ---
+# These tests verify the isinstance branch chain in orchestrator.run.
+# Each exception is raised at the appropriate pipeline stage so the orchestrator
+# wraps it (or passes it through) correctly.
 
 
 # --- Orchestrator dispatch integration ---
 
 def _make_conn() -> sqlite3.Connection:
     db_path = Path(f"file:{uuid.uuid4().hex}?mode=memory&cache=shared")
+    conn = get_connection(db_path)
     init_db(db_path)
-    return get_connection(db_path)
+    return conn
 
 
 def _make_status() -> tuple[StatusMessage, list[str]]:

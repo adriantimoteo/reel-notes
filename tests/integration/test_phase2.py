@@ -16,8 +16,9 @@ from storage import repository
 
 def _make_conn() -> sqlite3.Connection:
     db_path = Path(f"file:{uuid.uuid4().hex}?mode=memory&cache=shared")
+    conn = get_connection(db_path)
     init_db(db_path)
-    return get_connection(db_path)
+    return conn
 
 
 def _make_bot() -> MagicMock:
@@ -73,7 +74,8 @@ async def test_duplicate_url_status_contains_already_captured() -> None:
 
     with patch("bot.handlers.config") as mock_cfg, \
          patch("bot.handlers._bot", bot), \
-         patch("bot.handlers._conn", conn):
+         patch("bot.handlers._conn", conn), \
+         patch("bot.handlers._vault_writer", MagicMock()):
         mock_cfg.TELEGRAM_ALLOWED_USER_ID = ALLOWED_ID
         await handle_message(msg)
 
@@ -103,6 +105,7 @@ async def test_fresh_url_proceeds_to_download() -> None:
     with patch("bot.handlers.config") as mock_cfg, \
          patch("bot.handlers._bot", bot), \
          patch("bot.handlers._conn", conn), \
+         patch("bot.handlers._vault_writer", MagicMock()), \
          patch("pipeline.orchestrator.downloader.fetch", AsyncMock(return_value=fetch_result)), \
          patch("pipeline.orchestrator.extractor.extract", AsyncMock(return_value=stub_extraction)):
         mock_cfg.TELEGRAM_ALLOWED_USER_ID = ALLOWED_ID
@@ -134,6 +137,7 @@ async def test_status_send_called_before_orchestrator_run() -> None:
     with patch("bot.handlers.config") as mock_cfg, \
          patch("bot.handlers._bot", bot), \
          patch("bot.handlers._conn", conn), \
+         patch("bot.handlers._vault_writer", MagicMock()), \
          patch.object(StatusMessage, "send", tracked_send), \
          patch("bot.handlers.orchestrator.run", tracked_run):
         mock_cfg.TELEGRAM_ALLOWED_USER_ID = ALLOWED_ID
@@ -155,7 +159,8 @@ async def test_duplicate_with_vault_path_shows_path() -> None:
 
     with patch("bot.handlers.config") as mock_cfg, \
          patch("bot.handlers._bot", bot), \
-         patch("bot.handlers._conn", conn):
+         patch("bot.handlers._conn", conn), \
+         patch("bot.handlers._vault_writer", MagicMock()):
         mock_cfg.TELEGRAM_ALLOWED_USER_ID = ALLOWED_ID
         await handle_message(msg)
 
@@ -174,7 +179,8 @@ async def test_duplicate_without_vault_path_shows_fallback() -> None:
 
     with patch("bot.handlers.config") as mock_cfg, \
          patch("bot.handlers._bot", bot), \
-         patch("bot.handlers._conn", conn):
+         patch("bot.handlers._conn", conn), \
+         patch("bot.handlers._vault_writer", MagicMock()):
         mock_cfg.TELEGRAM_ALLOWED_USER_ID = ALLOWED_ID
         await handle_message(msg)
 

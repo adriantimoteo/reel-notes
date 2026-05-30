@@ -18,8 +18,9 @@ from storage.repository import find_by_url
 
 def _make_conn() -> sqlite3.Connection:
     db_path = Path(f"file:{uuid.uuid4().hex}?mode=memory&cache=shared")
+    conn = get_connection(db_path)
     init_db(db_path)
-    return get_connection(db_path)
+    return conn
 
 
 def _make_bot() -> MagicMock:

@@ -6,9 +6,21 @@ import time
 import google.genai as genai
 
 import config
+from pipeline.exceptions import ExtractionError
 from pipeline.models import ExtractionResult, Item, ReelMetadata
 
 logger = logging.getLogger(__name__)
+
+MAX_POLL_ATTEMPTS = 30  # 60 seconds total at 2s intervals
+
+_client: genai.Client | None = None
+
+
+def _get_client() -> genai.Client:
+    global _client
+    if _client is None:
+        _client = genai.Client(api_key=config.GEMINI_API_KEY)
+    return _client
 
 EXTRACTION_SCHEMA = {
     "type": "object",
@@ -55,12 +67,19 @@ def parse_extraction_response(raw: dict) -> ExtractionResult:
 
 
 def _extract_sync(metadata: ReelMetadata) -> ExtractionResult:
-    client = genai.Client(api_key=config.GEMINI_API_KEY)
+    client = _get_client()
 
     video_file = client.files.upload(file=metadata.video_path)
-    while video_file.state.name == "PROCESSING":
+    attempts = 0
+    while video_file.state.name == "PROCESSING" and attempts < MAX_POLL_ATTEMPTS:
         time.sleep(2)
         video_file = client.files.get(name=video_file.name)
+        attempts += 1
+
+    if video_file.state.name != "ACTIVE":
+        raise ExtractionError(
+            cause=RuntimeError(f"Gemini file in unexpected state: {video_file.state.name}")
+        )
 
     caption_block = f"\nCaption: {metadata.caption}" if metadata.caption else ""
     prompt = (

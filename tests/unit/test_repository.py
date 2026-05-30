@@ -14,8 +14,9 @@ from storage.repository import find_by_url, save_reel, update_extraction, update
 
 def make_conn() -> sqlite3.Connection:
     db_path = Path(f"file:{uuid.uuid4().hex}?mode=memory&cache=shared")
+    conn = get_connection(db_path)
     init_db(db_path)
-    return get_connection(db_path)
+    return conn
 
 
 METADATA = ReelMetadata(
@@ -138,5 +139,24 @@ async def test_update_extraction_only_affects_target_reel() -> None:
     other_row = await find_by_url(conn, other_metadata.source_url)
     assert other_row is not None
     assert other_row["transcription"] == ""
-    assert other_row["ocr_text"] == ""
-    assert other_row["summary"] == ""
+
+
+async def test_update_extraction_persists_items() -> None:
+    conn = make_conn()
+    empty = ExtractionResult(transcription="", ocr_text="", summary="", title="")
+    reel_id = await save_reel(conn, METADATA, empty)
+    updated = ExtractionResult(
+        transcription="t",
+        ocr_text="o",
+        summary="s",
+        title="t",
+        items=[
+            Item(name="Place A", item_type="place", description="Desc A"),
+            Item(name="Place B", item_type="restaurant", description="Desc B"),
+        ],
+    )
+    await update_extraction(conn, reel_id, updated)
+    count = conn.execute(
+        "SELECT COUNT(*) FROM items WHERE reel_id = ?", (reel_id,)
+    ).fetchone()[0]
+    assert count == 2

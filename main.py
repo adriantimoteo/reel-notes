@@ -38,7 +38,7 @@ def validate_config() -> None:
 
     if errors:
         for err in errors:
-            print(f"[config error] {err}", flush=True)
+            logger.error("%s", err)
         raise SystemExit(1)
 
 
@@ -47,14 +47,14 @@ def _redact(secret: str) -> str:
 
 
 def log_startup_config() -> None:
-    print("[startup] reel-capture-bot", flush=True)
-    print(f"[startup] vault:    {config.VAULT_PATH}", flush=True)
-    print(f"[startup] db:       {config.DB_PATH}", flush=True)
-    print(f"[startup] temp dir: {config.DOWNLOAD_TEMP_DIR}", flush=True)
-    print(f"[startup] max dur:  {config.MAX_VIDEO_DURATION_SECONDS}s", flush=True)
-    print(f"[startup] bot token: {_redact(config.TELEGRAM_BOT_TOKEN)}", flush=True)
-    print(f"[startup] gemini key: {_redact(config.GEMINI_API_KEY)}", flush=True)
-    print(f"[startup] allowed user: {config.TELEGRAM_ALLOWED_USER_ID}", flush=True)
+    logger.info("reel-capture-bot")
+    logger.info("vault:    %s", config.VAULT_PATH)
+    logger.info("db:       %s", config.DB_PATH)
+    logger.info("temp dir: %s", config.DOWNLOAD_TEMP_DIR)
+    logger.info("max dur:  %ss", config.MAX_VIDEO_DURATION_SECONDS)
+    logger.info("bot token: %s", _redact(config.TELEGRAM_BOT_TOKEN))
+    logger.info("gemini key: %s", _redact(config.GEMINI_API_KEY))
+    logger.info("allowed user: %s", config.TELEGRAM_ALLOWED_USER_ID)
 
 
 def cleanup_temp_dir(temp_dir: Path) -> int:

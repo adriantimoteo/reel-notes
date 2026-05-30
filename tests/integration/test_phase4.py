@@ -28,8 +28,9 @@ def _make_vault_writer(tmp_path: Path) -> VaultWriter:
 
 def _make_conn() -> sqlite3.Connection:
     db_path = Path(f"file:{uuid.uuid4().hex}?mode=memory&cache=shared")
+    conn = get_connection(db_path)
     init_db(db_path)
-    return get_connection(db_path)
+    return conn
 
 
 def _make_bot() -> MagicMock:
@@ -133,6 +134,7 @@ async def test_extraction_failure_status_update() -> None:
     with patch("bot.handlers.config") as mock_cfg, \
          patch("bot.handlers._bot", bot), \
          patch("bot.handlers._conn", conn), \
+         patch("bot.handlers._vault_writer", MagicMock()), \
          patch("pipeline.orchestrator.downloader.fetch", AsyncMock(return_value=fetch_result_fail)), \
          patch("pipeline.orchestrator.extractor.extract", AsyncMock(side_effect=Exception("quota exceeded"))):
         mock_cfg.TELEGRAM_ALLOWED_USER_ID = ALLOWED_ID
@@ -207,6 +209,7 @@ async def test_temp_file_deleted_on_extraction_failure() -> None:
     with patch("bot.handlers.config") as mock_cfg, \
          patch("bot.handlers._bot", bot), \
          patch("bot.handlers._conn", conn), \
+         patch("bot.handlers._vault_writer", MagicMock()), \
          patch("pipeline.orchestrator.downloader.fetch", AsyncMock(return_value=fetch_result_fail)), \
          patch("pipeline.orchestrator.extractor.extract", AsyncMock(side_effect=Exception("quota exceeded"))):
         mock_cfg.TELEGRAM_ALLOWED_USER_ID = ALLOWED_ID

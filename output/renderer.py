@@ -41,9 +41,9 @@ def render(
 
     return (
         f"---\n"
-        f"source: {metadata.source_url}\n"
+        f'source: "{metadata.source_url}"\n'
         f"platform: {metadata.platform}\n"
-        f"author: @{author_display}\n"
+        f'author: "@{author_display}"\n'
         f"posted: {posted}\n"
         f"captured: {captured}\n"
         f"tags: [{tags}]\n"

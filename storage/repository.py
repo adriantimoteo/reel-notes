@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 
 
 def _find_by_url(conn: sqlite3.Connection, url: str) -> sqlite3.Row | None:
-    logger.debug(f"find_by_url: {url}")
+    logger.debug("find_by_url: %s", url)
     return conn.execute(
         "SELECT * FROM reels WHERE source_url = ?", (url,)
     ).fetchone()
@@ -35,7 +35,7 @@ def _save_reel(
     metadata: ReelMetadata,
     extraction: ExtractionResult,
 ) -> int:
-    logger.debug(f"save_reel: {metadata.source_url}")
+    logger.debug("save_reel: %s", metadata.source_url)
     posted_at = metadata.posted_at.isoformat() if metadata.posted_at is not None else None
     cursor = conn.execute(
         """
@@ -74,7 +74,7 @@ async def save_reel(
 def _update_vault_path(
     conn: sqlite3.Connection, reel_id: int, vault_note_path: str
 ) -> None:
-    logger.debug(f"update_vault_path: reel_id={reel_id}")
+    logger.debug("update_vault_path: reel_id=%s", reel_id)
     conn.execute(
         "UPDATE reels SET vault_note_path = ? WHERE id = ?",
         (vault_note_path, reel_id),
@@ -93,6 +93,7 @@ def _update_extraction(conn: sqlite3.Connection, reel_id: int, extraction: Extra
         "UPDATE reels SET transcription=?, ocr_text=?, summary=? WHERE id=?",
         (extraction.transcription, extraction.ocr_text, extraction.summary, reel_id),
     )
+    _save_items(conn, reel_id, extraction.items)
     conn.commit()
 
 

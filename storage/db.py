@@ -8,7 +8,7 @@ logger = logging.getLogger(__name__)
 
 
 def get_connection(db_path: Path) -> sqlite3.Connection:
-    logger.debug(f"opening connection to {db_path}")
+    logger.debug("opening connection to %s", db_path)
     path_str = str(db_path)
     is_uri = path_str.startswith("file:")
     conn = sqlite3.connect(path_str, uri=is_uri, check_same_thread=False)
@@ -19,7 +19,8 @@ def get_connection(db_path: Path) -> sqlite3.Connection:
 
 def init_db(db_path: Path) -> None:
     logger.debug("initialising database schema")
-    with get_connection(db_path) as conn:
+    conn = get_connection(db_path)
+    try:
         conn.execute("""
             CREATE TABLE IF NOT EXISTS reels (
                 id          INTEGER PRIMARY KEY,
@@ -45,3 +46,6 @@ def init_db(db_path: Path) -> None:
                 description TEXT
             )
         """)
+        conn.commit()
+    finally:
+        conn.close()

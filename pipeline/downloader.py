@@ -75,8 +75,7 @@ def _download(url: str, temp_dir: Path) -> Path:
     }
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
         info = ydl.extract_info(url, download=True)
-    filename = f"{info['id']}.{info['ext']}"
-    return temp_dir / filename
+        return Path(ydl.prepare_filename(info))
 
 
 def normalize_metadata(info: dict, video_path: Path, platform: str, source_url: str) -> ReelMetadata:

@@ -1,7 +1,7 @@
 ---
-source: https://instagram.com/reel/abc123
+source: "https://instagram.com/reel/abc123"
 platform: instagram
-author: @Travel.Jane
+author: "@Travel.Jane"
 posted: 2026-03-12
 captured: 2026-05-27
 tags: [tokyo, ramen]

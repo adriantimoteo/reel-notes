@@ -1,12 +1,13 @@
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
+from typing import Literal
 
 
 @dataclass
 class ReelMetadata:
     source_url: str
-    platform: str                    # "instagram" | "tiktok" | "youtube"
+    platform: Literal["instagram", "tiktok", "youtube"]
     author: str | None
     posted_at: datetime | None
     title: str | None
@@ -18,7 +19,7 @@ class ReelMetadata:
 @dataclass
 class Item:
     name: str
-    item_type: str                   # "place" | "restaurant" | "activity" | "tip"
+    item_type: Literal["place", "restaurant", "activity", "tip"]
     description: str
 
 

@@ -34,8 +34,9 @@ def _make_bot() -> MagicMock:
 
 def _make_conn() -> sqlite3.Connection:
     db_path = Path(f"file:{uuid.uuid4().hex}?mode=memory&cache=shared")
+    conn = get_connection(db_path)
     init_db(db_path)
-    return get_connection(db_path)
+    return conn
 
 
 ALLOWED_ID = 12345
@@ -48,6 +49,7 @@ def patch_config_and_deps():
     with patch("bot.handlers.config") as mock_cfg, \
          patch("bot.handlers._bot", mock_bot), \
          patch("bot.handlers._conn", mock_conn), \
+         patch("bot.handlers._vault_writer", MagicMock()), \
          patch("bot.handlers.orchestrator.run", new=AsyncMock()):
         mock_cfg.TELEGRAM_ALLOWED_USER_ID = ALLOWED_ID
         yield mock_cfg, mock_bot

@@ -37,6 +37,7 @@ def detect_reel(text: str) -> tuple[str, str] | None:
 
 
 async def handle_message(message: Message) -> None:
+    assert _bot is not None and _conn is not None and _vault_writer is not None
     logger.debug("message received from user %s", message.from_user.id if message.from_user else None)
     if message.from_user is None or message.from_user.id != config.TELEGRAM_ALLOWED_USER_ID:
         logger.debug("ignored: wrong user %s", message.from_user.id if message.from_user else None)

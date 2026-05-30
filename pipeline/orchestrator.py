@@ -23,15 +23,6 @@ from storage import repository
 
 logger = logging.getLogger(__name__)
 
-ERROR_MESSAGES = {
-    UnsupportedPlatformError: lambda e: "unsupported URL",
-    DurationCapExceeded:      lambda e: f"rejected · video is {e.duration}s (limit {e.cap}s)",
-    DownloadError:            lambda e: f"download failed · {e.cause}",
-    ExtractionError:          lambda e: f"extraction failed · {e.cause}",
-    StorageError:             lambda e: f"save failed · {e.cause}",
-    VaultWriteError:          lambda e: f"vault write failed · {e.path} · {e.cause}",
-    ReelCaptureError:         lambda e: f"pipeline error · {e}",
-}
 
 
 async def run(
@@ -75,8 +66,8 @@ async def run(
         finally:
             try:
                 metadata.video_path.unlink(missing_ok=True)
-            except Exception:
-                pass
+            except Exception as cleanup_exc:
+                logger.warning("failed to delete temp file %s: %s", metadata.video_path, cleanup_exc)
 
         await repository.update_extraction(conn, reel_id, extraction)
         logger.info("extraction complete for %s", url)
@@ -101,10 +92,21 @@ async def run(
         await status.update(f"saved · {note_path.name}")
 
     except ReelCaptureError as exc:
-        for exc_type, msg_fn in ERROR_MESSAGES.items():
-            if isinstance(exc, exc_type):
-                await status.update(msg_fn(exc))
-                return
+        if isinstance(exc, UnsupportedPlatformError):
+            msg = "unsupported URL"
+        elif isinstance(exc, DurationCapExceeded):
+            msg = f"rejected · video is {exc.duration}s (limit {exc.cap}s)"
+        elif isinstance(exc, DownloadError):
+            msg = f"download failed · {exc.cause}"
+        elif isinstance(exc, ExtractionError):
+            msg = f"extraction failed · {exc.cause}"
+        elif isinstance(exc, StorageError):
+            msg = f"save failed · {exc.cause}"
+        elif isinstance(exc, VaultWriteError):
+            msg = f"vault write failed · {exc.path} · {exc.cause}"
+        else:
+            msg = f"pipeline error · {exc}"
+        await status.update(msg)
     except Exception as exc:
         logger.error("unexpected error for %s: %s", url, exc)
         await status.update(f"pipeline error · {exc}")

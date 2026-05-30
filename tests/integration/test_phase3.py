@@ -24,8 +24,9 @@ _STUB_EXTRACTION = ExtractionResult(
 
 def _make_conn() -> sqlite3.Connection:
     db_path = Path(f"file:{uuid.uuid4().hex}?mode=memory&cache=shared")
+    conn = get_connection(db_path)
     init_db(db_path)
-    return get_connection(db_path)
+    return conn
 
 
 def _make_bot() -> MagicMock:
@@ -90,6 +91,7 @@ async def test_fresh_url_successful_download() -> None:
     with patch("bot.handlers.config") as mock_cfg, \
          patch("bot.handlers._bot", bot), \
          patch("bot.handlers._conn", conn), \
+         patch("bot.handlers._vault_writer", MagicMock()), \
          patch("pipeline.orchestrator.downloader.fetch", AsyncMock(return_value=fetch_result)), \
          patch("pipeline.orchestrator.extractor.extract", AsyncMock(return_value=_STUB_EXTRACTION)):
         mock_cfg.TELEGRAM_ALLOWED_USER_ID = ALLOWED_ID
@@ -111,6 +113,7 @@ async def test_duration_cap_exceeded() -> None:
     with patch("bot.handlers.config") as mock_cfg, \
          patch("bot.handlers._bot", bot), \
          patch("bot.handlers._conn", conn), \
+         patch("bot.handlers._vault_writer", MagicMock()), \
          patch("pipeline.orchestrator.downloader.fetch", AsyncMock(side_effect=DurationCapExceeded(duration=180, cap=120))):
         mock_cfg.TELEGRAM_ALLOWED_USER_ID = ALLOWED_ID
         await handle_message(msg)
@@ -131,6 +134,7 @@ async def test_generic_download_failure() -> None:
     with patch("bot.handlers.config") as mock_cfg, \
          patch("bot.handlers._bot", bot), \
          patch("bot.handlers._conn", conn), \
+         patch("bot.handlers._vault_writer", MagicMock()), \
          patch("pipeline.orchestrator.downloader.fetch", AsyncMock(side_effect=Exception("blocked"))):
         mock_cfg.TELEGRAM_ALLOWED_USER_ID = ALLOWED_ID
         await handle_message(msg)
@@ -151,7 +155,8 @@ async def test_duplicate_url_already_captured() -> None:
 
     with patch("bot.handlers.config") as mock_cfg, \
          patch("bot.handlers._bot", bot), \
-         patch("bot.handlers._conn", conn):
+         patch("bot.handlers._conn", conn), \
+         patch("bot.handlers._vault_writer", MagicMock()):
         mock_cfg.TELEGRAM_ALLOWED_USER_ID = ALLOWED_ID
         await handle_message(msg)
 
@@ -195,6 +200,7 @@ async def test_status_ordering_send_before_downloading_before_final() -> None:
     with patch("bot.handlers.config") as mock_cfg, \
          patch("bot.handlers._bot", bot), \
          patch("bot.handlers._conn", conn), \
+         patch("bot.handlers._vault_writer", MagicMock()), \
          patch.object(StatusMessage, "send", tracked_send), \
          patch.object(StatusMessage, "update", tracked_update), \
          patch("pipeline.orchestrator.downloader.fetch", AsyncMock(return_value=fetch_result)), \
