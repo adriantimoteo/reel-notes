@@ -1,4 +1,4 @@
-# reelscribe
+# reel-notes
 
 A personal Telegram bot that captures Instagram Reels, TikTok videos, and YouTube Shorts and saves them as structured notes in your Obsidian vault.
 
