@@ -25,8 +25,8 @@ Send a link to your bot → it downloads the video, transcribes it with Gemini, 
 **1. Clone and install dependencies**
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/reelscribe.git
-cd reelscribe
+git clone https://github.com/adriantimoteo/reel-notes.git
+cd reel-notes
 uv sync
 ```
 
