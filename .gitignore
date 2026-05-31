@@ -19,3 +19,4 @@ downloads/
 *.db
 .pytest_cache/
 tmp/
+CLAUDE.md
