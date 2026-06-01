@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 from pathlib import Path
 
-from pipeline.models import ExtractionResult, Item, ReelMetadata
+from pipeline.models import ExtractionResult, Ingredient, Item, ReelMetadata, TutorialStep
 from output.renderer import generate_filename, render
 
 FIXTURE_PATH = Path(__file__).parent.parent / "fixtures" / "expected_note.md"
@@ -88,3 +88,73 @@ def test_render_posted_at_none() -> None:
     lines = result.splitlines()
     posted_line = next(line for line in lines if line.startswith("posted:"))
     assert posted_line == "posted: unknown"
+
+
+def test_render_tutorial_with_ingredients_and_steps() -> None:
+    metadata = _make_metadata()
+    extraction = _make_extraction(
+        content_type="tutorial",
+        items=[],
+        ingredients=[
+            Ingredient(name="spaghetti", quantity="200g"),
+            Ingredient(name="egg yolks", quantity=None),
+        ],
+        steps=[
+            TutorialStep(step_number=1, text="Boil the pasta in salted water."),
+            TutorialStep(step_number=2, text="Fry the guanciale until crispy."),
+        ],
+    )
+    result = render(metadata, extraction, captured_at=CAPTURED_AT)
+    assert "type: tutorial" in result
+    assert "## Ingredients" in result
+    assert "- 200g spaghetti" in result
+    assert "- egg yolks" in result
+    assert "## Steps" in result
+    assert "1. Boil the pasta in salted water." in result
+    assert "2. Fry the guanciale until crispy." in result
+    assert "## Items mentioned" not in result
+
+
+def test_render_tutorial_without_ingredients() -> None:
+    metadata = _make_metadata()
+    extraction = _make_extraction(
+        content_type="tutorial",
+        items=[],
+        ingredients=[],
+        steps=[
+            TutorialStep(step_number=1, text="Drill the armbar entry."),
+        ],
+    )
+    result = render(metadata, extraction, captured_at=CAPTURED_AT)
+    assert "## Ingredients" not in result
+    assert "## Steps" in result
+    assert "1. Drill the armbar entry." in result
+
+
+def test_render_other_type() -> None:
+    metadata = _make_metadata()
+    extraction = _make_extraction(
+        content_type="other",
+        items=[],
+        ingredients=[],
+        steps=[],
+    )
+    result = render(metadata, extraction, captured_at=CAPTURED_AT)
+    assert "type: other" in result
+    assert "## Items mentioned" not in result
+    assert "## Ingredients" not in result
+    assert "## Steps" not in result
+
+
+def test_render_type_none_falls_back_to_list() -> None:
+    metadata = _make_metadata()
+    extraction = _make_extraction(
+        content_type=None,
+        items=[
+            Item(name="Ramen Spot", item_type="restaurant", description="Great broth."),
+        ],
+    )
+    result = render(metadata, extraction, captured_at=CAPTURED_AT)
+    assert "type: list" in result
+    assert "## Items mentioned" in result
+    assert "**Ramen Spot** — Great broth." in result
