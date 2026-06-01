@@ -9,7 +9,7 @@ import pytest
 
 from pipeline.models import ExtractionResult, Item, ReelMetadata
 from storage.db import get_connection, init_db
-from storage.repository import find_by_url, save_reel, update_extraction, update_vault_path
+from storage.repository import delete_by_url, find_by_url, save_reel, update_extraction, update_vault_path
 
 
 def make_conn() -> sqlite3.Connection:
@@ -171,3 +171,17 @@ async def test_update_extraction_persists_items() -> None:
         "SELECT COUNT(*) FROM items WHERE reel_id = ?", (reel_id,)
     ).fetchone()[0]
     assert count == 2
+
+
+async def test_delete_by_url_removes_row() -> None:
+    conn = make_conn()
+    await save_reel(conn, METADATA, EXTRACTION)
+    await delete_by_url(conn, METADATA.source_url)
+    result = await find_by_url(conn, METADATA.source_url)
+    assert result is None
+
+
+async def test_delete_by_url_noop_on_missing_url() -> None:
+    conn = make_conn()
+    # Should not raise even if the URL was never saved
+    await delete_by_url(conn, "https://www.instagram.com/reel/doesnotexist/")

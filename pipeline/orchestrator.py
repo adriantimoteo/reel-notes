@@ -30,15 +30,19 @@ async def run(
     status: StatusMessage,
     conn: sqlite3.Connection,
     vault_writer: VaultWriter,
+    force: bool = False,
+    type_hint: str | None = None,
 ) -> None:
     if "://" not in url:
         url = "https://" + url
-    existing = await repository.find_by_url(conn, url)
-    if existing:
-        logger.info("duplicate detected — %s", url)
-        note_path = existing["vault_note_path"] or "(note not yet written)"
-        await status.update(f"already captured · {note_path}")
-        return
+
+    if not force:
+        existing = await repository.find_by_url(conn, url)
+        if existing:
+            logger.info("duplicate detected — %s", url)
+            note_path = existing["vault_note_path"] or "(note not yet written)"
+            await status.update(f"already captured · {note_path}")
+            return
 
     try:
         await status.update("downloading…")
@@ -50,6 +54,15 @@ async def run(
             logger.error("download failed for %s: %s", url, e)
             raise DownloadError(url=url, cause=e) from e
 
+        if force:
+            # Delete existing DB record after successful download so that if download
+            # fails, the original record is preserved. If extraction fails after this
+            # point, a new placeholder record will exist but without a note — this is
+            # an acceptable degraded state; the user can reprocess again.
+            # Known limitation: generate_filename includes a timestamp, so reprocessing
+            # produces a different filename. The old note file is NOT deleted on reprocess.
+            await repository.delete_by_url(conn, url)
+
         reel_id = await repository.save_reel(
             conn, metadata, ExtractionResult(transcription="", ocr_text="", summary="", title="")
         )
@@ -57,7 +70,7 @@ async def run(
         await status.update("extracting…")
 
         try:
-            extraction = await extractor.extract(metadata)
+            extraction = await extractor.extract(metadata, type_hint=type_hint)
         except ReelCaptureError:
             raise
         except Exception as e:

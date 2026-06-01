@@ -100,3 +100,13 @@ def _update_extraction(conn: sqlite3.Connection, reel_id: int, extraction: Extra
 
 async def update_extraction(conn: sqlite3.Connection, reel_id: int, extraction: ExtractionResult) -> None:
     await asyncio.to_thread(_update_extraction, conn, reel_id, extraction)
+
+
+def _delete_by_url(conn: sqlite3.Connection, url: str) -> None:
+    logger.debug("delete_by_url: %s", url)
+    conn.execute("DELETE FROM reels WHERE source_url = ?", (url,))
+    conn.commit()
+
+
+async def delete_by_url(conn: sqlite3.Connection, url: str) -> None:
+    await asyncio.to_thread(_delete_by_url, conn, url)
