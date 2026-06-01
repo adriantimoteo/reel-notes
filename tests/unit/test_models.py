@@ -3,7 +3,7 @@ from pathlib import Path
 
 import pytest
 
-from pipeline.models import ExtractionResult, Item, ReelMetadata
+from pipeline.models import ExtractionResult, Ingredient, Item, ReelMetadata, TutorialStep
 
 
 class TestReelMetadata:
@@ -160,3 +160,94 @@ class TestExtractionResult:
         r2 = ExtractionResult(transcription="b", ocr_text="", summary="s", title="t")
         r1.items.append(Item(name="X", item_type="tip", description="tip"))
         assert r2.items == []
+
+    def test_content_type_defaults_to_none(self):
+        result = ExtractionResult(transcription="", ocr_text="", summary="", title="")
+        assert result.content_type is None
+
+    def test_ingredients_defaults_to_empty_list(self):
+        result = ExtractionResult(transcription="", ocr_text="", summary="", title="")
+        assert result.ingredients == []
+
+    def test_steps_defaults_to_empty_list(self):
+        result = ExtractionResult(transcription="", ocr_text="", summary="", title="")
+        assert result.steps == []
+
+    def test_ingredients_default_is_not_shared(self):
+        r1 = ExtractionResult(transcription="a", ocr_text="", summary="s", title="t")
+        r2 = ExtractionResult(transcription="b", ocr_text="", summary="s", title="t")
+        r1.ingredients.append(Ingredient(name="Salt", quantity="1 tsp"))
+        assert r2.ingredients == []
+
+    def test_steps_default_is_not_shared(self):
+        r1 = ExtractionResult(transcription="a", ocr_text="", summary="s", title="t")
+        r2 = ExtractionResult(transcription="b", ocr_text="", summary="s", title="t")
+        r1.steps.append(TutorialStep(step_number=1, text="Mix ingredients"))
+        assert r2.steps == []
+
+    def test_fully_populated_tutorial_result(self):
+        result = ExtractionResult(
+            transcription="First, preheat the oven...",
+            ocr_text="350°F",
+            summary="A tutorial on baking bread.",
+            title="Bake Bread Tutorial",
+            content_type="tutorial",
+            ingredients=[
+                Ingredient(name="Flour", quantity="500g"),
+                Ingredient(name="Salt", quantity=None),
+            ],
+            steps=[
+                TutorialStep(step_number=1, text="Preheat the oven to 350°F"),
+                TutorialStep(step_number=2, text="Mix flour and salt"),
+            ],
+        )
+        assert result.content_type == "tutorial"
+        assert len(result.ingredients) == 2
+        assert result.ingredients[0].name == "Flour"
+        assert result.ingredients[0].quantity == "500g"
+        assert result.ingredients[1].quantity is None
+        assert len(result.steps) == 2
+        assert result.steps[0].step_number == 1
+        assert result.steps[1].text == "Mix flour and salt"
+
+    def test_content_type_list(self):
+        result = ExtractionResult(
+            transcription="", ocr_text="", summary="", title="", content_type="list"
+        )
+        assert result.content_type == "list"
+
+    def test_content_type_other(self):
+        result = ExtractionResult(
+            transcription="", ocr_text="", summary="", title="", content_type="other"
+        )
+        assert result.content_type == "other"
+
+
+class TestIngredient:
+    def test_instantiation_with_quantity(self):
+        ing = Ingredient(name="Sugar", quantity="200g")
+        assert ing.name == "Sugar"
+        assert ing.quantity == "200g"
+
+    def test_instantiation_without_quantity(self):
+        ing = Ingredient(name="Salt", quantity=None)
+        assert ing.name == "Salt"
+        assert ing.quantity is None
+
+    def test_quantity_accepts_freeform_string(self):
+        ing = Ingredient(name="Butter", quantity="a pinch")
+        assert ing.quantity == "a pinch"
+
+
+class TestTutorialStep:
+    def test_instantiation(self):
+        step = TutorialStep(step_number=1, text="Preheat the oven")
+        assert step.step_number == 1
+        assert step.text == "Preheat the oven"
+
+    def test_step_numbers_are_one_based(self):
+        steps = [
+            TutorialStep(step_number=i, text=f"Step {i}")
+            for i in range(1, 4)
+        ]
+        assert [s.step_number for s in steps] == [1, 2, 3]
