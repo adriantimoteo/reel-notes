@@ -6,5 +6,8 @@
     "items": [
         {"name": "Tonkatsu Maisen Aoyama", "item_type": "restaurant", "description": "Famous tonkatsu spot known for loin cut and cabbage refills."},
         {"name": "Shibuya Sky", "item_type": "place", "description": "Observation deck, best visited at sunset."}
-    ]
+    ],
+    "content_type": "list",
+    "ingredients": [],
+    "steps": []
 }

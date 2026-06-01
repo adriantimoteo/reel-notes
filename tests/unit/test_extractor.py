@@ -25,6 +25,9 @@ def test_parse_extraction_response_from_fixture() -> None:
     assert result.items[0].item_type == "restaurant"
     assert result.items[1].name == "Shibuya Sky"
     assert result.items[1].item_type == "place"
+    assert result.content_type == "list"
+    assert result.ingredients == []
+    assert result.steps == []
 
 
 def test_parse_extraction_response_empty_items() -> None:
@@ -32,6 +35,48 @@ def test_parse_extraction_response_empty_items() -> None:
         {"title": "", "transcription": "", "ocr_text": "", "summary": "", "items": []}
     )
     assert result.items == []
+
+
+def test_parse_extraction_response_missing_new_keys_returns_defaults() -> None:
+    """Missing content_type, ingredients, steps keys should produce safe defaults."""
+    result = parse_extraction_response(
+        {"title": "T", "transcription": "t", "ocr_text": "", "summary": "s", "items": []}
+    )
+    assert result.content_type is None
+    assert result.ingredients == []
+    assert result.steps == []
+
+
+def test_parse_extraction_response_tutorial_with_ingredients_and_steps() -> None:
+    raw = {
+        "title": "Easy Pasta",
+        "transcription": "Start by boiling water.",
+        "ocr_text": "",
+        "summary": "A quick pasta tutorial.",
+        "items": [],
+        "content_type": "tutorial",
+        "ingredients": [
+            {"name": "Pasta", "quantity": "200g"},
+            {"name": "Salt", "quantity": None},
+        ],
+        "steps": [
+            {"step_number": 1, "text": "Boil water"},
+            {"step_number": 2, "text": "Add pasta and cook for 8 minutes"},
+        ],
+    }
+    result = parse_extraction_response(raw)
+
+    assert result.content_type == "tutorial"
+    assert len(result.ingredients) == 2
+    assert result.ingredients[0].name == "Pasta"
+    assert result.ingredients[0].quantity == "200g"
+    assert result.ingredients[1].name == "Salt"
+    assert result.ingredients[1].quantity is None
+    assert len(result.steps) == 2
+    assert result.steps[0].step_number == 1
+    assert result.steps[0].text == "Boil water"
+    assert result.steps[1].step_number == 2
+    assert result.steps[1].text == "Add pasta and cook for 8 minutes"
 
 
 def test_extraction_schema_top_level_required() -> None:

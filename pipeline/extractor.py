@@ -7,7 +7,7 @@ import google.genai as genai
 
 import config
 from pipeline.exceptions import ExtractionError
-from pipeline.models import ExtractionResult, Item, ReelMetadata
+from pipeline.models import ExtractionResult, Ingredient, Item, ReelMetadata, TutorialStep
 
 logger = logging.getLogger(__name__)
 
@@ -62,6 +62,21 @@ def parse_extraction_response(raw: dict) -> ExtractionResult:
                 description=item["description"],
             )
             for item in raw.get("items", [])
+        ],
+        content_type=raw.get("content_type"),
+        ingredients=[
+            Ingredient(
+                name=ing["name"],
+                quantity=ing.get("quantity"),
+            )
+            for ing in raw.get("ingredients", [])
+        ],
+        steps=[
+            TutorialStep(
+                step_number=step["step_number"],
+                text=step["text"],
+            )
+            for step in raw.get("steps", [])
         ],
     )
 
