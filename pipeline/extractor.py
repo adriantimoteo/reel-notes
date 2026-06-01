@@ -29,6 +29,10 @@ EXTRACTION_SCHEMA = {
         "transcription": {"type": "string"},
         "ocr_text": {"type": "string"},
         "summary": {"type": "string"},
+        "content_type": {
+            "type": "string",
+            "enum": ["list", "tutorial", "other"],
+        },
         "items": {
             "type": "array",
             "items": {
@@ -44,8 +48,30 @@ EXTRACTION_SCHEMA = {
                 "required": ["name", "item_type", "description"],
             },
         },
+        "ingredients": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "name": {"type": "string"},
+                    "quantity": {"type": "string"},
+                },
+                "required": ["name"],
+            },
+        },
+        "steps": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "step_number": {"type": "integer"},
+                    "text": {"type": "string"},
+                },
+                "required": ["step_number", "text"],
+            },
+        },
     },
-    "required": ["title", "transcription", "ocr_text", "summary", "items"],
+    "required": ["title", "transcription", "ocr_text", "summary", "content_type", "items"],
 }
 
 
@@ -81,7 +107,7 @@ def parse_extraction_response(raw: dict) -> ExtractionResult:
     )
 
 
-def _extract_sync(metadata: ReelMetadata) -> ExtractionResult:
+def _extract_sync(metadata: ReelMetadata, type_hint: str | None = None) -> ExtractionResult:
     client = _get_client()
 
     video_file = client.files.upload(file=metadata.video_path)
@@ -96,15 +122,42 @@ def _extract_sync(metadata: ReelMetadata) -> ExtractionResult:
             cause=RuntimeError(f"Gemini file in unexpected state: {video_file.state.name}")
         )
 
+    type_hint_block = (
+        f"\nOVERRIDE: Treat this reel as type \"{type_hint}\" regardless of content."
+        if type_hint is not None
+        else ""
+    )
     caption_block = f"\nCaption: {metadata.caption}" if metadata.caption else ""
     prompt = (
         "Analyse this video and return a structured JSON response.\n"
-        "Extract:\n"
+        "\n"
+        "Always extract these fields for every reel:\n"
         "- title: short 3-5 word title describing what the video is about\n"
         "- transcription: verbatim audio transcription\n"
         "- ocr_text: all visible on-screen text\n"
         "- summary: 2-3 sentence summary of what the video is about\n"
-        "- items: list of places, restaurants, activities, or tips mentioned"
+        "\n"
+        "Classify the reel as exactly one of these content types:\n"
+        "- \"list\": named recommendations — places, restaurants, food items, products, or tips. "
+        "The reel presents a collection of things to visit, try, or use.\n"
+        "- \"tutorial\": procedural content — recipes, techniques, workouts, or any reel that walks "
+        "through a sequence of steps to accomplish something. The reel explains *how* to do something.\n"
+        "- \"other\": everything else — commentary, vlogs, motivational content, storytelling, "
+        "or any reel that neither recommends a list of things nor teaches a procedure. "
+        "A cooking reel that shows food without clear step-by-step instructions is \"other\", not \"tutorial\".\n"
+        "\n"
+        "Based on the content type, populate these fields (leave as empty arrays if not applicable):\n"
+        "- items: for \"list\" type — the named places, restaurants, activities, or tips mentioned. "
+        "Leave empty for \"tutorial\" and \"other\".\n"
+        "- ingredients: for \"tutorial\" type — ingredients or materials used, if any are explicitly "
+        "shown or stated. Leave empty if none are mentioned or if this is not a cooking/crafting reel.\n"
+        "- steps: for \"tutorial\" type — the numbered steps of the procedure, in order. "
+        "Leave empty for \"list\" and \"other\".\n"
+        "\n"
+        "IMPORTANT — no inference: only extract quantities, steps, and item descriptions that are "
+        "explicitly shown on screen or said aloud in the reel. Do not guess, infer, or fill in "
+        "details that are not directly present."
+        f"{type_hint_block}"
         f"{caption_block}"
     )
 
@@ -122,5 +175,5 @@ def _extract_sync(metadata: ReelMetadata) -> ExtractionResult:
     return parse_extraction_response(raw)
 
 
-async def extract(metadata: ReelMetadata) -> ExtractionResult:
-    return await asyncio.to_thread(_extract_sync, metadata)
+async def extract(metadata: ReelMetadata, type_hint: str | None = None) -> ExtractionResult:
+    return await asyncio.to_thread(_extract_sync, metadata, type_hint)
