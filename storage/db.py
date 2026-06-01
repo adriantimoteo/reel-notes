@@ -34,9 +34,14 @@ def init_db(db_path: Path) -> None:
                 transcription TEXT,
                 ocr_text    TEXT,
                 summary     TEXT,
-                vault_note_path TEXT
+                vault_note_path TEXT,
+                content_type TEXT
             )
         """)
+        try:
+            conn.execute("ALTER TABLE reels ADD COLUMN content_type TEXT")
+        except sqlite3.OperationalError:
+            pass  # column already exists (fresh DB or repeated init_db call)
         conn.execute("""
             CREATE TABLE IF NOT EXISTS items (
                 id          INTEGER PRIMARY KEY,
