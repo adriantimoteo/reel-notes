@@ -4,6 +4,7 @@ platform: instagram
 author: "@Travel.Jane"
 posted: 2026-03-12
 captured: 2026-05-27
+type: list
 tags: [tokyo, ramen]
 ---
 

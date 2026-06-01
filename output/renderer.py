@@ -32,29 +32,23 @@ def render(
     captured = ts.strftime("%Y-%m-%d")
     tags = ", ".join(metadata.hashtags)
 
-    if extraction.items:
-        items_block = "\n".join(
-            f"- **{item.name}** — {item.description}" for item in extraction.items
-        )
-    else:
-        items_block = "*(none)*"
+    # Resolve content_type — None falls back to list behaviour
+    content_type = extraction.content_type if extraction.content_type is not None else "list"
+    frontmatter_type = content_type  # always written as resolved value
 
-    return (
+    frontmatter = (
         f"---\n"
         f'source: "{metadata.source_url}"\n'
         f"platform: {metadata.platform}\n"
         f'author: "@{author_display}"\n'
         f"posted: {posted}\n"
         f"captured: {captured}\n"
+        f"type: {frontmatter_type}\n"
         f"tags: [{tags}]\n"
         f"---\n"
-        f"\n"
-        f"## Summary\n"
-        f"{extraction.summary}\n"
-        f"\n"
-        f"## Items mentioned\n"
-        f"{items_block}\n"
-        f"\n"
+    )
+
+    common_tail = (
         f"## Transcription\n"
         f"> {extraction.transcription}\n"
         f"\n"
@@ -64,3 +58,61 @@ def render(
         f"## Caption\n"
         f"> {metadata.caption or '(none)'}"
     )
+
+    if content_type == "tutorial":
+        sections = []
+
+        # Ingredients — omit entire section if empty
+        if extraction.ingredients:
+            ingredient_lines = []
+            for ing in extraction.ingredients:
+                if ing.quantity:
+                    ingredient_lines.append(f"- {ing.quantity} {ing.name}")
+                else:
+                    ingredient_lines.append(f"- {ing.name}")
+            sections.append("## Ingredients\n" + "\n".join(ingredient_lines))
+
+        # Steps — always present for tutorial type
+        if extraction.steps:
+            step_lines = [f"{step.step_number}. {step.text}" for step in extraction.steps]
+            sections.append("## Steps\n" + "\n".join(step_lines))
+        else:
+            sections.append("## Steps\n")
+
+        body = (
+            f"## Summary\n"
+            f"{extraction.summary}\n"
+            f"\n"
+        )
+        if sections:
+            body += "\n".join(sections) + "\n\n"
+        body += common_tail
+
+    elif content_type == "other":
+        body = (
+            f"## Summary\n"
+            f"{extraction.summary}\n"
+            f"\n"
+            f"{common_tail}"
+        )
+
+    else:
+        # list (including None fallback)
+        if extraction.items:
+            items_block = "\n".join(
+                f"- **{item.name}** — {item.description}" for item in extraction.items
+            )
+        else:
+            items_block = "*(none)*"
+
+        body = (
+            f"## Summary\n"
+            f"{extraction.summary}\n"
+            f"\n"
+            f"## Items mentioned\n"
+            f"{items_block}\n"
+            f"\n"
+            f"{common_tail}"
+        )
+
+    return frontmatter + "\n" + body
