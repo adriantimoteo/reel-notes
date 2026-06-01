@@ -80,7 +80,14 @@ def test_parse_extraction_response_tutorial_with_ingredients_and_steps() -> None
 
 
 def test_extraction_schema_top_level_required() -> None:
-    assert EXTRACTION_SCHEMA["required"] == ["title", "transcription", "ocr_text", "summary", "items"]
+    assert EXTRACTION_SCHEMA["required"] == [
+        "title",
+        "transcription",
+        "ocr_text",
+        "summary",
+        "content_type",
+        "items",
+    ]
 
 
 def test_extraction_schema_item_required() -> None:
@@ -89,6 +96,20 @@ def test_extraction_schema_item_required() -> None:
         "item_type",
         "description",
     ]
+
+
+def test_extraction_schema_has_content_type_enum() -> None:
+    content_type_schema = EXTRACTION_SCHEMA["properties"]["content_type"]
+    assert content_type_schema["type"] == "string"
+    assert content_type_schema["enum"] == ["list", "tutorial", "other"]
+
+
+def test_extraction_schema_has_ingredients_and_steps() -> None:
+    properties = EXTRACTION_SCHEMA["properties"]
+    assert "ingredients" in properties
+    assert properties["ingredients"]["type"] == "array"
+    assert "steps" in properties
+    assert properties["steps"]["type"] == "array"
 
 
 def _make_metadata(tmp_path: Path, caption: str | None = None) -> tuple[ReelMetadata, Path]:
@@ -223,3 +244,15 @@ async def test_max_poll_attempts_raises_extraction_error(
         await extract(metadata)
 
     assert mock_client.files.get.call_count == MAX_POLL_ATTEMPTS
+
+
+@patch("pipeline.extractor._client")
+async def test_type_hint_injected_into_prompt(mock_client: MagicMock, tmp_path: Path) -> None:
+    mock_client.files.upload.return_value = _active_upload_mock()
+    mock_client.models.generate_content.return_value.text = json.dumps(FIXTURE)
+
+    metadata, _ = _make_metadata(tmp_path)
+    await extract(metadata, type_hint="tutorial")
+
+    prompt = mock_client.models.generate_content.call_args.kwargs["contents"][1]
+    assert "tutorial" in prompt
