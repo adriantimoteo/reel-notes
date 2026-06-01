@@ -101,6 +101,7 @@ async def test_update_extraction_persists_fields() -> None:
         summary="new summary",
         title="Updated Title",
         items=[],
+        content_type="tutorial",
     )
     await update_extraction(conn, reel_id, updated)
     row = await find_by_url(conn, METADATA.source_url)
@@ -108,6 +109,16 @@ async def test_update_extraction_persists_fields() -> None:
     assert row["transcription"] == "new transcription"
     assert row["ocr_text"] == "new ocr"
     assert row["summary"] == "new summary"
+    assert row["content_type"] == "tutorial"
+
+
+async def test_save_reel_persists_null_content_type() -> None:
+    conn = make_conn()
+    empty = ExtractionResult(transcription="", ocr_text="", summary="", title="")
+    await save_reel(conn, METADATA, empty)
+    row = await find_by_url(conn, METADATA.source_url)
+    assert row is not None
+    assert row["content_type"] is None
 
 
 async def test_update_extraction_only_affects_target_reel() -> None:

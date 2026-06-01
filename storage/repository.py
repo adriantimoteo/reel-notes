@@ -41,8 +41,8 @@ def _save_reel(
         """
         INSERT INTO reels (
             source_url, platform, author, posted_at, captured_at,
-            title, caption, transcription, ocr_text, summary
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            title, caption, transcription, ocr_text, summary, content_type
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (
             metadata.source_url,
@@ -55,6 +55,7 @@ def _save_reel(
             extraction.transcription,
             extraction.ocr_text,
             extraction.summary,
+            extraction.content_type,
         ),
     )
     reel_id = cursor.lastrowid
@@ -90,8 +91,8 @@ async def update_vault_path(
 
 def _update_extraction(conn: sqlite3.Connection, reel_id: int, extraction: ExtractionResult) -> None:
     conn.execute(
-        "UPDATE reels SET transcription=?, ocr_text=?, summary=? WHERE id=?",
-        (extraction.transcription, extraction.ocr_text, extraction.summary, reel_id),
+        "UPDATE reels SET transcription=?, ocr_text=?, summary=?, content_type=? WHERE id=?",
+        (extraction.transcription, extraction.ocr_text, extraction.summary, extraction.content_type, reel_id),
     )
     _save_items(conn, reel_id, extraction.items)
     conn.commit()
