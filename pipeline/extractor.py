@@ -135,7 +135,7 @@ def _extract_sync(metadata: ReelMetadata, type_hint: str | None = None) -> Extra
         "- title: short 3-5 word title describing what the video is about\n"
         "- transcription: verbatim audio transcription\n"
         "- ocr_text: all visible on-screen text\n"
-        "- summary: 2-3 sentence summary of what the video is about\n"
+        "- summary: 2-3 sentence summary of the content. Write it directly — do not start with \"This video\", \"This reel\", \"This tutorial\", \"In this video\", or any similar meta-reference to the format.\n"
         "\n"
         "Classify the reel as exactly one of these content types:\n"
         "- \"list\": named recommendations — places, restaurants, food items, products, or tips. "
