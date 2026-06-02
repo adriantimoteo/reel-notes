@@ -2,15 +2,17 @@
 
 A personal Telegram bot that captures Instagram Reels, TikTok videos, and YouTube Shorts and saves them as structured notes in your Obsidian vault.
 
-Send a link to your bot → it downloads the video, transcribes it with Gemini, extracts places and tips, and writes a formatted note.
+Send a link to your bot → it downloads the video, analyses it with Gemini, classifies the content type, and writes a formatted note.
 
 ## What it does
 
 - Detects reel/short links in Telegram messages
 - Downloads the video via yt-dlp
-- Sends it to Gemini for transcription, OCR, summarisation, and item extraction
-- Writes a Markdown note to your Obsidian vault with frontmatter, summary, items, transcription, and caption
+- Sends it to Gemini for transcription, OCR, summarisation, and structured extraction
+- Classifies each reel as `list`, `tutorial`, or `other` and renders the note accordingly
+- Writes a Markdown note to your Obsidian vault with YAML frontmatter
 - Deduplicates: sending the same link twice returns the existing note path
+- `/reprocess` command to re-run extraction on an already-captured URL
 
 ## Requirements
 
@@ -39,8 +41,8 @@ GEMINI_API_KEY=your_gemini_api_key
 
 VAULT_PATH=/absolute/path/to/your/obsidian/vault
 VAULT_NOTES_SUBDIR=Reels
-DB_PATH=/absolute/path/to/reelscribe.db
-DOWNLOAD_TEMP_DIR=/tmp/reelscribe
+DB_PATH=/absolute/path/to/reels.db
+DOWNLOAD_TEMP_DIR=/tmp/reel-notes
 
 # Optional
 MAX_VIDEO_DURATION_SECONDS=120
@@ -57,7 +59,9 @@ uv run python main.py
 
 ## Note format
 
-Each captured reel becomes a Markdown file in `VAULT_PATH/VAULT_NOTES_SUBDIR/`:
+Each reel becomes a Markdown file in `VAULT_PATH/VAULT_NOTES_SUBDIR/`. The structure adapts to the content type.
+
+**List** — places, restaurants, recommendations:
 
 ```markdown
 ---
@@ -65,25 +69,62 @@ source: "https://www.instagram.com/reel/..."
 platform: instagram
 author: "@username"
 posted: 2024-03-01
-captured: 2026-05-31
-tags: [tokyo, ramen, food]
+captured: 2026-06-01
+type: list
+tags: [tokyo, ramen]
 ---
 
 ## Summary
-A tour of the best tonkatsu restaurants in Tokyo...
+A tour of the best tonkatsu spots in Tokyo...
 
 ## Items mentioned
 - **Tonkatsu Maisen Aoyama** — Classic tonkatsu in Aoyama.
 
 ## Transcription
 > Today we're checking out...
-
-## On-screen text
-> Open 11am–10pm · ¥1,500
-
-## Caption
-> Best katsu I've ever had
 ```
+
+**Tutorial** — recipes, step-by-step how-tos:
+
+```markdown
+type: tutorial
+---
+
+## Summary
+A quick pasta recipe...
+
+## Ingredients
+- 200g Pasta
+- Salt
+
+## Steps
+1. Boil water
+2. Add pasta and cook for 8 minutes
+
+## Transcription
+> Start by boiling water...
+```
+
+**Other** — vlogs, commentary, storytelling:
+
+```markdown
+type: other
+---
+
+## Summary
+...
+
+## Transcription
+...
+```
+
+## Bot commands
+
+| Command | Description |
+|---|---|
+| Send a URL | Capture and save the reel |
+| `/reprocess <url>` | Re-run extraction on an already-captured URL |
+| `/reprocess <url> tutorial` | Re-run with a forced content type (`list`, `tutorial`, `other`) |
 
 ## Supported platforms
 
