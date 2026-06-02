@@ -36,6 +36,8 @@ async def run(
     if "://" not in url:
         url = "https://" + url
 
+    existing_note_path: str | None = None
+
     if not force:
         existing = await repository.find_by_url(conn, url)
         if existing:
@@ -43,6 +45,9 @@ async def run(
             note_path = existing["vault_note_path"] or "(note not yet written)"
             await status.update(f"already captured · {note_path}")
             return
+    else:
+        existing = await repository.find_by_url(conn, url)
+        existing_note_path = existing["vault_note_path"] if existing else None
 
     try:
         await status.update("downloading…")
@@ -55,12 +60,13 @@ async def run(
             raise DownloadError(url=url, cause=e) from e
 
         if force:
-            # Delete existing DB record after successful download so that if download
-            # fails, the original record is preserved. If extraction fails after this
-            # point, a new placeholder record will exist but without a note — this is
-            # an acceptable degraded state; the user can reprocess again.
-            # Known limitation: generate_filename includes a timestamp, so reprocessing
-            # produces a different filename. The old note file is NOT deleted on reprocess.
+            if existing_note_path:
+                old_file = config.VAULT_PATH / existing_note_path
+                try:
+                    old_file.unlink(missing_ok=True)
+                    logger.info("deleted old note: %s", existing_note_path)
+                except Exception as e:
+                    logger.warning("failed to delete old note %s: %s", existing_note_path, e)
             await repository.delete_by_url(conn, url)
 
         reel_id = await repository.save_reel(

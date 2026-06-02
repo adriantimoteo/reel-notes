@@ -40,16 +40,18 @@ EXTRACTION = ExtractionResult(
 )
 
 
-async def test_run_skips_dedup_when_force_true(tmp_path: Path) -> None:
-    """With force=True, find_by_url must never be called."""
+async def test_run_does_not_dedup_when_force_true(tmp_path: Path) -> None:
+    """With force=True, the pipeline proceeds even when find_by_url returns an existing row."""
     metadata = _make_metadata(tmp_path)
-    status, _ = _make_status()
+    status, updates = _make_status()
     note = tmp_path / "note.md"
     note.write_text("content")
     vault_writer = MagicMock()
     vault_writer.write.return_value = note
 
-    with patch("pipeline.orchestrator.repository.find_by_url", AsyncMock(return_value=None)) as mock_find, \
+    existing_row = {"vault_note_path": None}
+
+    with patch("pipeline.orchestrator.repository.find_by_url", AsyncMock(return_value=existing_row)), \
          patch("pipeline.orchestrator.downloader.fetch", AsyncMock(return_value=metadata)), \
          patch("pipeline.orchestrator.extractor.extract", AsyncMock(return_value=EXTRACTION)), \
          patch("pipeline.orchestrator.repository.delete_by_url", AsyncMock()), \
@@ -62,7 +64,8 @@ async def test_run_skips_dedup_when_force_true(tmp_path: Path) -> None:
         mock_cfg.VAULT_PATH = tmp_path
         await run(URL, status, MagicMock(), vault_writer, force=True)
 
-    mock_find.assert_not_called()
+    assert not any("already captured" in u for u in updates), "force=True should not trigger dedup"
+    assert any("saved" in u for u in updates), "pipeline should have completed"
 
 
 async def test_run_checks_dedup_when_force_false(tmp_path: Path) -> None:
@@ -142,3 +145,59 @@ async def test_type_hint_passed_to_extractor(tmp_path: Path) -> None:
         await run(URL, status, MagicMock(), vault_writer, force=True, type_hint="tutorial")
 
     mock_extract.assert_called_once_with(metadata, type_hint="tutorial")
+
+
+async def test_run_deletes_old_note_when_force_true(tmp_path: Path) -> None:
+    """When force=True and existing record has vault_note_path, the old file is deleted."""
+    metadata = _make_metadata(tmp_path)
+    status, _ = _make_status()
+    old_note = tmp_path / "old-note.md"
+    old_note.write_text("old content")
+    new_note = tmp_path / "new-note.md"
+    new_note.write_text("new content")
+    vault_writer = MagicMock()
+    vault_writer.write.return_value = new_note
+
+    existing_row = {"vault_note_path": "old-note.md"}
+
+    with patch("pipeline.orchestrator.repository.find_by_url", AsyncMock(return_value=existing_row)), \
+         patch("pipeline.orchestrator.downloader.fetch", AsyncMock(return_value=metadata)), \
+         patch("pipeline.orchestrator.extractor.extract", AsyncMock(return_value=EXTRACTION)), \
+         patch("pipeline.orchestrator.repository.delete_by_url", AsyncMock()), \
+         patch("pipeline.orchestrator.repository.save_reel", AsyncMock(return_value=1)), \
+         patch("pipeline.orchestrator.repository.update_extraction", AsyncMock()), \
+         patch("pipeline.orchestrator.repository.update_vault_path", AsyncMock()), \
+         patch("pipeline.orchestrator.renderer.generate_filename", return_value="new-note.md"), \
+         patch("pipeline.orchestrator.renderer.render", return_value="# content"), \
+         patch("pipeline.orchestrator.config") as mock_cfg:
+        mock_cfg.VAULT_PATH = tmp_path
+        await run(URL, status, MagicMock(), vault_writer, force=True)
+
+    assert not old_note.exists(), "old note file should have been deleted"
+
+
+async def test_run_no_file_deletion_when_note_path_is_null(tmp_path: Path) -> None:
+    """When force=True and vault_note_path is NULL, no file deletion is attempted."""
+    metadata = _make_metadata(tmp_path)
+    status, _ = _make_status()
+    note = tmp_path / "note.md"
+    note.write_text("content")
+    vault_writer = MagicMock()
+    vault_writer.write.return_value = note
+
+    existing_row = {"vault_note_path": None}
+
+    with patch("pipeline.orchestrator.repository.find_by_url", AsyncMock(return_value=existing_row)), \
+         patch("pipeline.orchestrator.downloader.fetch", AsyncMock(return_value=metadata)), \
+         patch("pipeline.orchestrator.extractor.extract", AsyncMock(return_value=EXTRACTION)), \
+         patch("pipeline.orchestrator.repository.delete_by_url", AsyncMock()), \
+         patch("pipeline.orchestrator.repository.save_reel", AsyncMock(return_value=1)), \
+         patch("pipeline.orchestrator.repository.update_extraction", AsyncMock()), \
+         patch("pipeline.orchestrator.repository.update_vault_path", AsyncMock()), \
+         patch("pipeline.orchestrator.renderer.generate_filename", return_value="note.md"), \
+         patch("pipeline.orchestrator.renderer.render", return_value="# content"), \
+         patch("pipeline.orchestrator.config") as mock_cfg:
+        mock_cfg.VAULT_PATH = tmp_path
+        await run(URL, status, MagicMock(), vault_writer, force=True)
+
+    assert note.exists(), "note should not have been touched"
