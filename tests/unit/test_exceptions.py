@@ -8,6 +8,7 @@ from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+from google.genai import errors as genai_errors
 
 from pipeline.exceptions import (
     DownloadError,
@@ -132,6 +133,23 @@ async def test_download_exception_produces_download_failed(tmp_path: Path) -> No
         await run("https://instagram.com/reel/test", status, conn, MagicMock())
 
     assert any("download failed" in u for u in updates), f"Got: {updates}"
+
+
+async def test_extraction_model_retired_produces_specific_message(tmp_path: Path) -> None:
+    conn = _make_conn()
+    status, updates = _make_status()
+    metadata = _make_metadata(tmp_path)
+    retired_error = genai_errors.ClientError(
+        404, {"message": "This model is no longer available. Please update your code to use models/gemini-9000-flash."}
+    )
+
+    with patch("pipeline.orchestrator.downloader.fetch", AsyncMock(return_value=metadata)), \
+         patch("pipeline.orchestrator.extractor.extract", AsyncMock(side_effect=retired_error)), \
+         patch("pipeline.orchestrator.repository.find_by_url", AsyncMock(return_value=None)), \
+         patch("pipeline.orchestrator.repository.save_reel", AsyncMock(return_value=1)):
+        await run("https://instagram.com/reel/test", status, conn, MagicMock())
+
+    assert any("Gemini model retired" in u and "gemini-9000-flash" in u for u in updates), f"Got: {updates}"
 
 
 async def test_extraction_exception_produces_extraction_failed(tmp_path: Path) -> None:

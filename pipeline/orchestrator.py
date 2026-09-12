@@ -4,6 +4,8 @@ import asyncio
 import logging
 import sqlite3
 
+from google.genai import errors as genai_errors
+
 import config
 from bot.status import StatusMessage
 from output import renderer
@@ -136,7 +138,12 @@ async def run(
             else:
                 msg = f"download failed · {exc.cause}"
         elif isinstance(exc, ExtractionError):
-            msg = f"extraction failed · {exc.cause}"
+            cause = exc.cause
+            if isinstance(cause, genai_errors.ClientError) and getattr(cause, "code", None) == 404:
+                detail = getattr(cause, "message", None) or str(cause)
+                msg = f"extraction failed · Gemini model retired — update pipeline.extractor.MODEL_NAME · {detail}"
+            else:
+                msg = f"extraction failed · {exc.cause}"
         elif isinstance(exc, StorageError):
             msg = f"save failed · {exc.cause}"
         elif isinstance(exc, VaultWriteError):

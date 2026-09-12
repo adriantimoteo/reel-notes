@@ -9,6 +9,7 @@ from pipeline.exceptions import ExtractionError
 from pipeline.extractor import (
     EXTRACTION_SCHEMA,
     MAX_POLL_ATTEMPTS,
+    MODEL_NAME,
     _is_retryable_extraction_error,
     extract,
     parse_extraction_response,
@@ -196,7 +197,7 @@ async def test_generate_content_called_with_correct_model_and_mime(mock_client: 
     await extract(metadata)
 
     call_kwargs = mock_client.models.generate_content.call_args.kwargs
-    assert call_kwargs["model"] == "gemini-2.5-flash"
+    assert call_kwargs["model"] == MODEL_NAME
     assert call_kwargs["config"].response_mime_type == "application/json"
 
 
@@ -370,6 +371,12 @@ def test_is_retryable_returns_true_for_rate_limit() -> None:
 
 def test_is_retryable_returns_false_for_other_client_error() -> None:
     err = genai_errors.ClientError(400, {"message": "bad request"})
+    assert _is_retryable_extraction_error(err) is False
+
+
+def test_is_retryable_returns_false_for_model_not_found() -> None:
+    """A retired/renamed model (404) is permanent — retrying wastes the backoff delay for nothing."""
+    err = genai_errors.ClientError(404, {"message": "This model is no longer available."})
     assert _is_retryable_extraction_error(err) is False
 
 

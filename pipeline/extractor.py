@@ -13,6 +13,7 @@ from pipeline.retry import call_with_retry
 
 logger = logging.getLogger(__name__)
 
+MODEL_NAME = "gemini-3.5-flash"  # gemini-2.5-flash retires 2026-10-16 — bump this when Google deprecates again
 MAX_POLL_ATTEMPTS = 30  # 60 seconds total at 2s intervals
 EXTRACTION_RETRY_ATTEMPTS = 3
 EXTRACTION_RETRY_BASE_DELAY = 5.0
@@ -189,7 +190,7 @@ def _extract_sync(metadata: ReelMetadata, type_hint: str | None = None) -> Extra
     )
 
     response = client.models.generate_content(
-        model="gemini-2.5-flash",
+        model=MODEL_NAME,
         contents=[*uploaded_files, prompt],
         config=genai.types.GenerateContentConfig(
             response_mime_type="application/json",
