@@ -1,0 +1,35 @@
+name: Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    env:
+      TELEGRAM_BOT_TOKEN: test-token
+      TELEGRAM_ALLOWED_USER_ID: "123456789"
+      GEMINI_API_KEY: test-key
+      VAULT_PATH: /tmp/reel-notes-ci/vault
+      VAULT_NOTES_SUBDIR: Reels
+      DB_PATH: /tmp/reel-notes-ci/reels.db
+      DOWNLOAD_TEMP_DIR: /tmp/reel-notes-ci/tmp
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          enable-cache: true
+
+      - name: Set up Python
+        run: uv python install
+
+      - name: Install dependencies
+        run: uv sync
+
+      - name: Run tests
+        run: uv run pytest -q
