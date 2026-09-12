@@ -50,12 +50,54 @@ def canonicalize(url: str, platform: str) -> str:
     return urllib.parse.urlunparse(canonical)
 
 
+def _sanitize_cookies_file(source: Path) -> Path:
+    """Returns path to a cleaned copy of a Netscape cookies.txt with malformed lines removed.
+
+    Browser exporters (and Edge in particular) sometimes include cookies with
+    empty values. Python's http.cookiejar rejects those lines, so we strip them
+    and write a sibling file that yt-dlp can load cleanly.
+    """
+    dest = source.with_stem(source.stem + "_clean")
+    with source.open(encoding="utf-8", errors="replace") as f_in, \
+         dest.open("w", encoding="utf-8") as f_out:
+        for line in f_in:
+            stripped = line.rstrip("\n\r")
+            if stripped.startswith("#") or stripped == "":
+                f_out.write(line)
+                continue
+            fields = stripped.split("\t")
+            if len(fields) == 7 and fields[6] != "":
+                # Netscape format requires: domain starts with '.' iff flag col is TRUE
+                initial_dot = fields[0].startswith(".")
+                domain_flag = fields[1].upper() == "TRUE"
+                if initial_dot == domain_flag:
+                    f_out.write(line)
+                else:
+                    logger.debug("cookies: dropped malformed line: %s", stripped[:80])
+            else:
+                logger.debug("cookies: dropped malformed line: %s", stripped[:80])
+    return dest
+
+
+def _apply_cookies(ydl_opts: dict) -> dict:
+    """Adds cookie auth to yt-dlp opts. Instagram (and sometimes others) reject
+    anonymous requests with an empty media response, so pass browser cookies or a
+    cookies.txt file when configured."""
+    if config.YTDLP_COOKIES_FROM_BROWSER:
+        # yt-dlp expects a tuple: (browser, profile, keyring, container)
+        ydl_opts["cookiesfrombrowser"] = (config.YTDLP_COOKIES_FROM_BROWSER,)
+    elif config.YTDLP_COOKIES_FILE:
+        clean = _sanitize_cookies_file(config.YTDLP_COOKIES_FILE)
+        ydl_opts["cookiefile"] = str(clean)
+    return ydl_opts
+
+
 def _fetch_info(url: str) -> dict:
-    ydl_opts = {
+    ydl_opts = _apply_cookies({
         "quiet": True,
         "no_warnings": True,
         "skip_download": True,
-    }
+    })
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
         info = ydl.extract_info(url, download=False)
     duration = info.get("duration", 0)
@@ -67,12 +109,12 @@ def _fetch_info(url: str) -> dict:
 
 
 def _download(url: str, temp_dir: Path) -> Path:
-    ydl_opts = {
+    ydl_opts = _apply_cookies({
         "quiet": True,
         "no_warnings": True,
         "outtmpl": str(temp_dir / "%(id)s.%(ext)s"),
         "format": "mp4/bestvideo+bestaudio/best",
-    }
+    })
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
         info = ydl.extract_info(url, download=True)
         return Path(ydl.prepare_filename(info))

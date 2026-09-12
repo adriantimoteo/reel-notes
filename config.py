@@ -29,6 +29,8 @@ def _load() -> None:
     global DOWNLOAD_TEMP_DIR
     global MAX_VIDEO_DURATION_SECONDS
     global LOG_LEVEL
+    global YTDLP_COOKIES_FILE
+    global YTDLP_COOKIES_FROM_BROWSER
 
     TELEGRAM_BOT_TOKEN = _require("TELEGRAM_BOT_TOKEN")
     TELEGRAM_ALLOWED_USER_ID = int(_require("TELEGRAM_ALLOWED_USER_ID"))
@@ -40,6 +42,10 @@ def _load() -> None:
     MAX_VIDEO_DURATION_SECONDS = int(os.getenv("MAX_VIDEO_DURATION_SECONDS", "120"))
     LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO").upper()
 
+    cookies_file = os.getenv("YTDLP_COOKIES_FILE")
+    YTDLP_COOKIES_FILE = Path(cookies_file) if cookies_file else None
+    YTDLP_COOKIES_FROM_BROWSER = os.getenv("YTDLP_COOKIES_FROM_BROWSER") or None
+
 
 TELEGRAM_BOT_TOKEN: str
 TELEGRAM_ALLOWED_USER_ID: int
@@ -50,5 +56,7 @@ DB_PATH: Path
 DOWNLOAD_TEMP_DIR: Path
 MAX_VIDEO_DURATION_SECONDS: int
 LOG_LEVEL: str
+YTDLP_COOKIES_FILE: Path | None
+YTDLP_COOKIES_FROM_BROWSER: str | None
 
 _load()

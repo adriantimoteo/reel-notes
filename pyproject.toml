@@ -8,7 +8,7 @@ dependencies = [
     "aiogram>=3.28.2",
     "google-genai>=2.7.0",
     "python-dotenv>=1.2.2",
-    "yt-dlp>=2026.3.17",
+    "yt-dlp>=2026.6.9",
 ]
 
 [build-system]

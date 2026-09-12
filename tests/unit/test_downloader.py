@@ -7,7 +7,7 @@ from unittest.mock import MagicMock, call, patch
 import pytest
 
 import config
-from pipeline.downloader import _fetch_info, canonicalize, detect_platform, fetch, normalize_metadata
+from pipeline.downloader import _apply_cookies, _fetch_info, canonicalize, detect_platform, fetch, normalize_metadata
 from pipeline.exceptions import DurationCapExceeded, ReelCaptureError, UnsupportedPlatformError
 from pipeline.models import ReelMetadata
 
@@ -137,6 +137,37 @@ def test_fetch_info_absent_tags_defaults_to_empty_list(mock_ydl_class: MagicMock
     result = _fetch_info("https://www.instagram.com/reel/abc/")
 
     assert result["tags"] == []
+
+
+# --- cookie auth ---
+
+
+def test_apply_cookies_none_when_unconfigured(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(config, "YTDLP_COOKIES_FROM_BROWSER", None)
+    monkeypatch.setattr(config, "YTDLP_COOKIES_FILE", None)
+    opts = _apply_cookies({"quiet": True})
+    assert "cookiesfrombrowser" not in opts
+    assert "cookiefile" not in opts
+
+
+def test_apply_cookies_from_browser(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(config, "YTDLP_COOKIES_FROM_BROWSER", "chrome")
+    monkeypatch.setattr(config, "YTDLP_COOKIES_FILE", Path("/tmp/cookies.txt"))
+    opts = _apply_cookies({})
+    assert opts["cookiesfrombrowser"] == ("chrome",)
+    assert "cookiefile" not in opts
+
+
+def test_apply_cookies_from_file(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(config, "YTDLP_COOKIES_FROM_BROWSER", None)
+    cookie_path = Path("/tmp/cookies.txt")
+    clean_path = Path("/tmp/cookies_clean.txt")
+    monkeypatch.setattr(config, "YTDLP_COOKIES_FILE", cookie_path)
+    with patch("pipeline.downloader._sanitize_cookies_file", return_value=clean_path) as mock_san:
+        opts = _apply_cookies({})
+    mock_san.assert_called_once_with(cookie_path)
+    assert opts["cookiefile"] == str(clean_path)
+    assert "cookiesfrombrowser" not in opts
 
 
 # --- P03T03: normalize_metadata and fetch ---

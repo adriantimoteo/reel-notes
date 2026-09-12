@@ -116,7 +116,13 @@ async def run(
         elif isinstance(exc, DurationCapExceeded):
             msg = f"rejected · video is {exc.duration}s (limit {exc.cap}s)"
         elif isinstance(exc, DownloadError):
-            msg = f"download failed · {exc.cause}"
+            cause_str = str(exc.cause)
+            if "empty media response" in cause_str:
+                msg = "download failed · Instagram requires authentication — set YTDLP_COOKIES_FILE in .env"
+            elif "Could not copy" in cause_str and "cookie database" in cause_str:
+                msg = "download failed · browser cookie access blocked — use YTDLP_COOKIES_FILE instead of YTDLP_COOKIES_FROM_BROWSER"
+            else:
+                msg = f"download failed · {exc.cause}"
         elif isinstance(exc, ExtractionError):
             msg = f"extraction failed · {exc.cause}"
         elif isinstance(exc, StorageError):
