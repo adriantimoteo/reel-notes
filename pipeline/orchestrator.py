@@ -30,7 +30,8 @@ async def run(
     status: StatusMessage,
     conn: sqlite3.Connection,
     vault_writer: VaultWriter,
-    force: bool = False,
+    force_reprocess: bool = False,
+    skip_length_check: bool = False,
     type_hint: str | None = None,
 ) -> None:
     if "://" not in url:
@@ -38,7 +39,7 @@ async def run(
 
     existing_note_path: str | None = None
 
-    if not force:
+    if not force_reprocess:
         existing = await repository.find_by_url(conn, url)
         if existing:
             logger.info("duplicate detected — %s", url)
@@ -52,14 +53,15 @@ async def run(
     try:
         await status.update("downloading…")
         try:
-            metadata = await downloader.fetch(url)
+            max_duration = config.FORCE_MAX_VIDEO_DURATION_SECONDS if skip_length_check else None
+            metadata = await downloader.fetch(url, max_duration=max_duration)
         except (DurationCapExceeded, UnsupportedPlatformError):
             raise
         except Exception as e:
             logger.error("download failed for %s: %s", url, e)
             raise DownloadError(url=url, cause=e) from e
 
-        if force:
+        if force_reprocess:
             if existing_note_path:
                 old_file = config.VAULT_PATH / existing_note_path
                 try:

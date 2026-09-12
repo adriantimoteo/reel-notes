@@ -106,6 +106,32 @@ def test_fetch_info_raises_duration_cap_exceeded_when_over_limit(mock_ydl_class:
 
 
 @patch("pipeline.downloader.yt_dlp.YoutubeDL")
+def test_fetch_info_uses_max_duration_override_when_given(mock_ydl_class: MagicMock, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(config, "MAX_VIDEO_DURATION_SECONDS", 120)
+    mock_instance = MagicMock()
+    mock_ydl_class.return_value.__enter__.return_value = mock_instance
+    mock_instance.extract_info.return_value = {"duration": 300, "tags": []}
+
+    result = _fetch_info("https://www.youtube.com/shorts/abc", max_duration=600)
+
+    assert result == {"duration": 300, "tags": []}
+
+
+@patch("pipeline.downloader.yt_dlp.YoutubeDL")
+def test_fetch_info_raises_with_max_duration_override_when_still_over(mock_ydl_class: MagicMock, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(config, "MAX_VIDEO_DURATION_SECONDS", 120)
+    mock_instance = MagicMock()
+    mock_ydl_class.return_value.__enter__.return_value = mock_instance
+    mock_instance.extract_info.return_value = {"duration": 900, "tags": []}
+
+    with pytest.raises(DurationCapExceeded) as exc_info:
+        _fetch_info("https://www.youtube.com/shorts/abc", max_duration=600)
+
+    assert exc_info.value.duration == 900
+    assert exc_info.value.cap == 600
+
+
+@patch("pipeline.downloader.yt_dlp.YoutubeDL")
 def test_fetch_info_returns_info_when_within_limit(mock_ydl_class: MagicMock, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(config, "MAX_VIDEO_DURATION_SECONDS", 120)
     mock_instance = MagicMock()
@@ -230,7 +256,7 @@ async def test_fetch_calls_fetch_info_before_download(
     monkeypatch.setattr(config, "DOWNLOAD_TEMP_DIR", Path("/tmp/downloads"))
     call_order: list[str] = []
 
-    def fake_fetch_info(url: str) -> dict:
+    def fake_fetch_info(url: str, max_duration: int | None = None) -> dict:
         call_order.append("_fetch_info")
         return {
             "duration": 60,

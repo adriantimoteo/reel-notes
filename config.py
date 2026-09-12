@@ -28,6 +28,7 @@ def _load() -> None:
     global DB_PATH
     global DOWNLOAD_TEMP_DIR
     global MAX_VIDEO_DURATION_SECONDS
+    global FORCE_MAX_VIDEO_DURATION_SECONDS
     global LOG_LEVEL
     global YTDLP_COOKIES_FILE
     global YTDLP_COOKIES_FROM_BROWSER
@@ -40,6 +41,7 @@ def _load() -> None:
     DB_PATH = Path(_require("DB_PATH"))
     DOWNLOAD_TEMP_DIR = Path(_require("DOWNLOAD_TEMP_DIR"))
     MAX_VIDEO_DURATION_SECONDS = int(os.getenv("MAX_VIDEO_DURATION_SECONDS", "120"))
+    FORCE_MAX_VIDEO_DURATION_SECONDS = int(os.getenv("FORCE_MAX_VIDEO_DURATION_SECONDS", "600"))
     LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO").upper()
 
     cookies_file = os.getenv("YTDLP_COOKIES_FILE")
@@ -55,6 +57,7 @@ VAULT_NOTES_SUBDIR: str
 DB_PATH: Path
 DOWNLOAD_TEMP_DIR: Path
 MAX_VIDEO_DURATION_SECONDS: int
+FORCE_MAX_VIDEO_DURATION_SECONDS: int
 LOG_LEVEL: str
 YTDLP_COOKIES_FILE: Path | None
 YTDLP_COOKIES_FROM_BROWSER: str | None

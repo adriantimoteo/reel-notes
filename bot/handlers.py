@@ -101,7 +101,7 @@ async def handle_reprocess(message: Message) -> None:
 
     status = StatusMessage(_bot)
     await status.send(message.chat.id, "reprocessing…")
-    await orchestrator.run(url, status, _conn, _vault_writer, force=True, type_hint=type_hint)
+    await orchestrator.run(url, status, _conn, _vault_writer, force_reprocess=True, type_hint=type_hint)
 
 
 async def handle_message(message: Message) -> None:
@@ -127,6 +127,29 @@ async def handle_message(message: Message) -> None:
     await orchestrator.run(url, status, _conn, _vault_writer)
 
 
+async def handle_force(message: Message) -> None:
+    assert _bot is not None and _conn is not None and _vault_writer is not None
+    logger.debug("force command from user %s", message.from_user.id if message.from_user else None)
+    if message.from_user is None or message.from_user.id != config.TELEGRAM_ALLOWED_USER_ID:
+        logger.debug("ignored: wrong user %s", message.from_user.id if message.from_user else None)
+        return
+
+    if not message.text:
+        return
+
+    result = detect_reel(message.text)
+    if result is None:
+        await message.answer("usage: /force <URL>")
+        return
+
+    url, platform = result
+    logger.info("force detected — %s %s", platform, url)
+
+    status = StatusMessage(_bot)
+    await status.send(message.chat.id, f"detected {platform} reel — processing...")
+    await orchestrator.run(url, status, _conn, _vault_writer, skip_length_check=True)
+
+
 def register_handlers(
     dp: Dispatcher, bot: Bot, conn: sqlite3.Connection, vault_writer: VaultWriter
 ) -> None:
@@ -135,4 +158,5 @@ def register_handlers(
     _conn = conn
     _vault_writer = vault_writer
     dp.message.register(handle_reprocess, Command("reprocess"))
+    dp.message.register(handle_force, Command("force"))
     dp.message.register(handle_message)

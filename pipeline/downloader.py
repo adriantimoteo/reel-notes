@@ -92,7 +92,7 @@ def _apply_cookies(ydl_opts: dict) -> dict:
     return ydl_opts
 
 
-def _fetch_info(url: str) -> dict:
+def _fetch_info(url: str, max_duration: int | None = None) -> dict:
     ydl_opts = _apply_cookies({
         "quiet": True,
         "no_warnings": True,
@@ -101,8 +101,9 @@ def _fetch_info(url: str) -> dict:
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
         info = ydl.extract_info(url, download=False)
     duration = info.get("duration", 0)
-    if duration > config.MAX_VIDEO_DURATION_SECONDS:
-        raise DurationCapExceeded(duration=duration, cap=config.MAX_VIDEO_DURATION_SECONDS)
+    cap = max_duration if max_duration is not None else config.MAX_VIDEO_DURATION_SECONDS
+    if duration > cap:
+        raise DurationCapExceeded(duration=duration, cap=cap)
     info.setdefault("tags", [])
     logger.debug("fetched info for %s: duration=%ss", url, duration)
     return info
@@ -135,10 +136,10 @@ def normalize_metadata(info: dict, video_path: Path, platform: str, source_url: 
     )
 
 
-async def fetch(url: str) -> ReelMetadata:
+async def fetch(url: str, max_duration: int | None = None) -> ReelMetadata:
     platform = detect_platform(url)
     canonical = canonicalize(url, platform)
-    info = await asyncio.to_thread(_fetch_info, canonical)
+    info = await asyncio.to_thread(_fetch_info, canonical, max_duration)
     video_path = await asyncio.to_thread(_download, canonical, config.DOWNLOAD_TEMP_DIR)
     metadata = normalize_metadata(info, video_path, platform, canonical)
     logger.info("fetched metadata for %s", canonical)

@@ -41,7 +41,7 @@ EXTRACTION = ExtractionResult(
 
 
 async def test_run_does_not_dedup_when_force_true(tmp_path: Path) -> None:
-    """With force=True, the pipeline proceeds even when find_by_url returns an existing row."""
+    """With force_reprocess=True, the pipeline proceeds even when find_by_url returns an existing row."""
     metadata = _make_metadata(tmp_path)
     status, updates = _make_status()
     note = tmp_path / "note.md"
@@ -62,26 +62,75 @@ async def test_run_does_not_dedup_when_force_true(tmp_path: Path) -> None:
          patch("pipeline.orchestrator.renderer.render", return_value="# content"), \
          patch("pipeline.orchestrator.config") as mock_cfg:
         mock_cfg.VAULT_PATH = tmp_path
-        await run(URL, status, MagicMock(), vault_writer, force=True)
+        await run(URL, status, MagicMock(), vault_writer, force_reprocess=True)
 
-    assert not any("already captured" in u for u in updates), "force=True should not trigger dedup"
+    assert not any("already captured" in u for u in updates), "force_reprocess=True should not trigger dedup"
     assert any("saved" in u for u in updates), "pipeline should have completed"
 
 
 async def test_run_checks_dedup_when_force_false(tmp_path: Path) -> None:
-    """With force=False (default), find_by_url must be called."""
+    """With force_reprocess=False (default), find_by_url must be called."""
     status, _ = _make_status()
 
     with patch("pipeline.orchestrator.repository.find_by_url", AsyncMock(return_value=None)) as mock_find, \
          patch("pipeline.orchestrator.downloader.fetch", AsyncMock(side_effect=RuntimeError("stop early"))), \
          patch("pipeline.orchestrator.repository.delete_by_url", AsyncMock()):
-        await run(URL, status, MagicMock(), MagicMock(), force=False)
+        await run(URL, status, MagicMock(), MagicMock(), force_reprocess=False)
 
     mock_find.assert_called_once()
 
 
+async def test_run_passes_force_max_duration_when_skip_length_check_true(tmp_path: Path) -> None:
+    """With skip_length_check=True, downloader.fetch is called with the force duration cap."""
+    metadata = _make_metadata(tmp_path)
+    status, _ = _make_status()
+    note = tmp_path / "note.md"
+    note.write_text("content")
+    vault_writer = MagicMock()
+    vault_writer.write.return_value = note
+
+    with patch("pipeline.orchestrator.repository.find_by_url", AsyncMock(return_value=None)), \
+         patch("pipeline.orchestrator.downloader.fetch", AsyncMock(return_value=metadata)) as mock_fetch, \
+         patch("pipeline.orchestrator.extractor.extract", AsyncMock(return_value=EXTRACTION)), \
+         patch("pipeline.orchestrator.repository.save_reel", AsyncMock(return_value=1)), \
+         patch("pipeline.orchestrator.repository.update_extraction", AsyncMock()), \
+         patch("pipeline.orchestrator.repository.update_vault_path", AsyncMock()), \
+         patch("pipeline.orchestrator.renderer.generate_filename", return_value="note.md"), \
+         patch("pipeline.orchestrator.renderer.render", return_value="# content"), \
+         patch("pipeline.orchestrator.config") as mock_cfg:
+        mock_cfg.VAULT_PATH = tmp_path
+        mock_cfg.FORCE_MAX_VIDEO_DURATION_SECONDS = 600
+        await run(URL, status, MagicMock(), vault_writer, skip_length_check=True)
+
+    mock_fetch.assert_called_once_with(URL, max_duration=600)
+
+
+async def test_run_passes_no_max_duration_when_skip_length_check_false(tmp_path: Path) -> None:
+    """With skip_length_check=False (default), downloader.fetch is called with max_duration=None."""
+    metadata = _make_metadata(tmp_path)
+    status, _ = _make_status()
+    note = tmp_path / "note.md"
+    note.write_text("content")
+    vault_writer = MagicMock()
+    vault_writer.write.return_value = note
+
+    with patch("pipeline.orchestrator.repository.find_by_url", AsyncMock(return_value=None)), \
+         patch("pipeline.orchestrator.downloader.fetch", AsyncMock(return_value=metadata)) as mock_fetch, \
+         patch("pipeline.orchestrator.extractor.extract", AsyncMock(return_value=EXTRACTION)), \
+         patch("pipeline.orchestrator.repository.save_reel", AsyncMock(return_value=1)), \
+         patch("pipeline.orchestrator.repository.update_extraction", AsyncMock()), \
+         patch("pipeline.orchestrator.repository.update_vault_path", AsyncMock()), \
+         patch("pipeline.orchestrator.renderer.generate_filename", return_value="note.md"), \
+         patch("pipeline.orchestrator.renderer.render", return_value="# content"), \
+         patch("pipeline.orchestrator.config") as mock_cfg:
+        mock_cfg.VAULT_PATH = tmp_path
+        await run(URL, status, MagicMock(), vault_writer)
+
+    mock_fetch.assert_called_once_with(URL, max_duration=None)
+
+
 async def test_run_deletes_existing_record_when_force_true_and_url_exists(tmp_path: Path) -> None:
-    """With force=True, delete_by_url must be called after download but before save_reel."""
+    """With force_reprocess=True, delete_by_url must be called after download but before save_reel."""
     metadata = _make_metadata(tmp_path)
     status, _ = _make_status()
     note = tmp_path / "note.md"
@@ -91,7 +140,7 @@ async def test_run_deletes_existing_record_when_force_true_and_url_exists(tmp_pa
 
     call_order: list[str] = []
 
-    async def mock_fetch(url: str) -> ReelMetadata:
+    async def mock_fetch(url: str, max_duration: int | None = None) -> ReelMetadata:
         call_order.append("fetch")
         return metadata
 
@@ -112,7 +161,7 @@ async def test_run_deletes_existing_record_when_force_true_and_url_exists(tmp_pa
          patch("pipeline.orchestrator.renderer.render", return_value="# content"), \
          patch("pipeline.orchestrator.config") as mock_cfg:
         mock_cfg.VAULT_PATH = tmp_path
-        await run(URL, status, MagicMock(), vault_writer, force=True)
+        await run(URL, status, MagicMock(), vault_writer, force_reprocess=True)
 
     assert "delete_by_url" in call_order, "delete_by_url was never called"
     assert "save_reel" in call_order, "save_reel was never called"
@@ -124,7 +173,7 @@ async def test_run_deletes_existing_record_when_force_true_and_url_exists(tmp_pa
 
 
 async def test_type_hint_passed_to_extractor(tmp_path: Path) -> None:
-    """With force=True and type_hint='tutorial', extractor.extract is called with type_hint='tutorial'."""
+    """With force_reprocess=True and type_hint='tutorial', extractor.extract is called with type_hint='tutorial'."""
     metadata = _make_metadata(tmp_path)
     status, _ = _make_status()
     note = tmp_path / "note.md"
@@ -142,13 +191,13 @@ async def test_type_hint_passed_to_extractor(tmp_path: Path) -> None:
          patch("pipeline.orchestrator.renderer.render", return_value="# content"), \
          patch("pipeline.orchestrator.config") as mock_cfg:
         mock_cfg.VAULT_PATH = tmp_path
-        await run(URL, status, MagicMock(), vault_writer, force=True, type_hint="tutorial")
+        await run(URL, status, MagicMock(), vault_writer, force_reprocess=True, type_hint="tutorial")
 
     mock_extract.assert_called_once_with(metadata, type_hint="tutorial")
 
 
 async def test_run_deletes_old_note_when_force_true(tmp_path: Path) -> None:
-    """When force=True and existing record has vault_note_path, the old file is deleted."""
+    """When force_reprocess=True and existing record has vault_note_path, the old file is deleted."""
     metadata = _make_metadata(tmp_path)
     status, _ = _make_status()
     old_note = tmp_path / "old-note.md"
@@ -171,13 +220,13 @@ async def test_run_deletes_old_note_when_force_true(tmp_path: Path) -> None:
          patch("pipeline.orchestrator.renderer.render", return_value="# content"), \
          patch("pipeline.orchestrator.config") as mock_cfg:
         mock_cfg.VAULT_PATH = tmp_path
-        await run(URL, status, MagicMock(), vault_writer, force=True)
+        await run(URL, status, MagicMock(), vault_writer, force_reprocess=True)
 
     assert not old_note.exists(), "old note file should have been deleted"
 
 
 async def test_run_no_file_deletion_when_note_path_is_null(tmp_path: Path) -> None:
-    """When force=True and vault_note_path is NULL, no file deletion is attempted."""
+    """When force_reprocess=True and vault_note_path is NULL, no file deletion is attempted."""
     metadata = _make_metadata(tmp_path)
     status, _ = _make_status()
     note = tmp_path / "note.md"
@@ -198,6 +247,6 @@ async def test_run_no_file_deletion_when_note_path_is_null(tmp_path: Path) -> No
          patch("pipeline.orchestrator.renderer.render", return_value="# content"), \
          patch("pipeline.orchestrator.config") as mock_cfg:
         mock_cfg.VAULT_PATH = tmp_path
-        await run(URL, status, MagicMock(), vault_writer, force=True)
+        await run(URL, status, MagicMock(), vault_writer, force_reprocess=True)
 
     assert note.exists(), "note should not have been touched"

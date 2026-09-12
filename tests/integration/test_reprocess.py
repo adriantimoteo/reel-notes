@@ -54,7 +54,7 @@ def patch_config_and_deps():
         yield mock_cfg, mock_bot
 
 
-# --- Test: force=True is passed to orchestrator ---
+# --- Test: force_reprocess=True is passed to orchestrator ---
 
 async def test_reprocess_command_calls_orchestrator_with_force_true(
     patch_config_and_deps,
@@ -64,7 +64,7 @@ async def test_reprocess_command_calls_orchestrator_with_force_true(
         await handle_reprocess(msg)
     mock_run.assert_called_once()
     _, kwargs = mock_run.call_args
-    assert kwargs.get("force") is True
+    assert kwargs.get("force_reprocess") is True
 
 
 # --- Test: type_hint is forwarded ---
