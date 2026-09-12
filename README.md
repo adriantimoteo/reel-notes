@@ -13,6 +13,7 @@ Send a link to your bot → it downloads the video, analyses it with Gemini, cla
 - Writes a Markdown note to your Obsidian vault with YAML frontmatter
 - Deduplicates: sending the same link twice returns the existing note path
 - `/reprocess` command to re-run extraction on an already-captured URL
+- `/force` command to bypass the video length cap for a single URL, up to a hard limit
 
 ## Requirements
 
@@ -46,7 +47,15 @@ DOWNLOAD_TEMP_DIR=/tmp/reel-notes
 
 # Optional
 MAX_VIDEO_DURATION_SECONDS=120
+FORCE_MAX_VIDEO_DURATION_SECONDS=600
 LOG_LEVEL=INFO
+
+# Optional — cookie auth for yt-dlp (Instagram often rejects anonymous downloads)
+# Prefer pulling from an installed browser you're logged into...
+YTDLP_COOKIES_FROM_BROWSER=edge
+# ...or point to an exported cookies.txt (Netscape format). Ignored if the
+# browser option above is set.
+YTDLP_COOKIES_FILE=/absolute/path/to/cookies.txt
 ```
 
 To find your Telegram user ID, message [@userinfobot](https://t.me/userinfobot).
@@ -124,7 +133,8 @@ type: other
 |---|---|
 | Send a URL | Capture and save the reel |
 | `/reprocess <url>` | Re-run extraction on an already-captured URL |
-| `/reprocess <url> tutorial` | Re-run with a forced content type (`list`, `tutorial`, `other`) |
+| `/reprocess <url> --as tutorial` | Re-run with a forced content type (`list`, `tutorial`, `other`) |
+| `/force <url>` | Bypass `MAX_VIDEO_DURATION_SECONDS` for one URL, up to `FORCE_MAX_VIDEO_DURATION_SECONDS` (default 600s) |
 
 ## Supported platforms
 
