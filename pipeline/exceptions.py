@@ -11,6 +11,12 @@ class UnsupportedPlatformError(ReelCaptureError):
         self.url = url
 
 
+class UnsupportedCarouselError(UnsupportedPlatformError):
+    """Raised for a recognized-but-unsupported photo carousel URL (e.g. YouTube's
+    image-post Shorts format), so callers can give a more specific message than
+    the generic 'unsupported URL'."""
+
+
 class DurationCapExceeded(ReelCaptureError):
     def __init__(self, duration: int, cap: int) -> None:
         super().__init__(f"video is {duration}s, limit is {cap}s")

@@ -15,6 +15,7 @@ from pipeline.exceptions import (
     ExtractionError,
     ReelCaptureError,
     StorageError,
+    UnsupportedCarouselError,
     UnsupportedPlatformError,
     VaultWriteError,
 )
@@ -56,6 +57,7 @@ def test_vault_write_error_preserves_cause_and_path() -> None:
 
 @pytest.mark.parametrize("exc_cls,kwargs", [
     (UnsupportedPlatformError, {"url": "https://x.com"}),
+    (UnsupportedCarouselError, {"url": "https://x.com"}),
     (DurationCapExceeded, {"duration": 300, "cap": 120}),
     (DownloadError, {"url": "https://x.com", "cause": Exception("err")}),
     (ExtractionError, {"cause": Exception("err")}),
@@ -106,6 +108,19 @@ def _make_metadata(tmp_path: Path) -> ReelMetadata:
 EXTRACTION = ExtractionResult(
     transcription="t", ocr_text="o", summary="s", title="Test Title"
 )
+
+
+async def test_unsupported_carousel_produces_specific_message() -> None:
+    conn = _make_conn()
+    status, updates = _make_status()
+
+    with patch(
+        "pipeline.orchestrator.downloader.fetch",
+        AsyncMock(side_effect=UnsupportedCarouselError("https://www.youtube.com/post/abc")),
+    ), patch("pipeline.orchestrator.repository.find_by_url", AsyncMock(return_value=None)):
+        await run("https://www.youtube.com/post/abc", status, conn, MagicMock())
+
+    assert any("YouTube photo/carousel" in u for u in updates), f"Got: {updates}"
 
 
 async def test_download_exception_produces_download_failed(tmp_path: Path) -> None:

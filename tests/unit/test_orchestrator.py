@@ -238,6 +238,30 @@ async def test_temp_video_deleted_when_save_reel_fails(tmp_path: Path) -> None:
     assert not metadata.video_path.exists(), "temp video should be deleted even when save_reel fails"
 
 
+async def test_temp_carousel_images_and_audio_deleted_when_save_reel_fails(tmp_path: Path) -> None:
+    """A carousel/slideshow reel's image + audio temp files must all be cleaned up, not just video_path."""
+    status, _ = _make_status()
+    image1 = tmp_path / "1.jpeg"
+    image1.write_bytes(b"fake")
+    image2 = tmp_path / "2.jpeg"
+    image2.write_bytes(b"fake")
+    audio = tmp_path / "audio.mp3"
+    audio.write_bytes(b"fake")
+    metadata = ReelMetadata(
+        source_url=URL, platform="tiktok", author="tester", posted_at=None,
+        title=None, caption=None, image_paths=[image1, image2], audio_path=audio,
+    )
+
+    with patch("pipeline.orchestrator.repository.find_by_url", AsyncMock(return_value=None)), \
+         patch("pipeline.orchestrator.downloader.fetch", AsyncMock(return_value=metadata)), \
+         patch("pipeline.orchestrator.repository.save_reel", AsyncMock(side_effect=RuntimeError("db locked"))):
+        await run(URL, status, MagicMock(), MagicMock())
+
+    assert not image1.exists()
+    assert not image2.exists()
+    assert not audio.exists()
+
+
 async def test_run_no_file_deletion_when_note_path_is_null(tmp_path: Path) -> None:
     """When force_reprocess=True and vault_note_path is NULL, no file deletion is attempted."""
     metadata = _make_metadata(tmp_path)

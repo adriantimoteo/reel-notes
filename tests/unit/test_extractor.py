@@ -134,6 +134,31 @@ def _make_metadata(tmp_path: Path, caption: str | None = None) -> tuple[ReelMeta
     return metadata, video_path
 
 
+def _make_carousel_metadata(
+    tmp_path: Path, num_images: int = 2, with_audio: bool = False
+) -> tuple[ReelMetadata, list[Path], Path | None]:
+    image_paths = []
+    for i in range(num_images):
+        p = tmp_path / f"img{i}.jpeg"
+        p.write_bytes(b"fake")
+        image_paths.append(p)
+    audio_path = None
+    if with_audio:
+        audio_path = tmp_path / "audio.mp3"
+        audio_path.write_bytes(b"fake")
+    metadata = ReelMetadata(
+        source_url="https://www.tiktok.com/@user/photo/123",
+        platform="tiktok",
+        author="creator",
+        posted_at=None,
+        title=None,
+        caption="slideshow caption",
+        image_paths=image_paths,
+        audio_path=audio_path,
+    )
+    return metadata, image_paths, audio_path
+
+
 def _active_upload_mock() -> MagicMock:
     m = MagicMock()
     m.state.name = "ACTIVE"
@@ -197,6 +222,71 @@ async def test_no_caption_line_when_caption_is_none(mock_client: MagicMock, tmp_
 
     prompt = mock_client.models.generate_content.call_args.kwargs["contents"][1]
     assert "Caption:" not in prompt
+
+
+# --- carousel/slideshow (multi-image + optional audio) extraction ---
+
+
+@patch("pipeline.extractor._client")
+async def test_carousel_uploads_each_image_and_audio_in_order(mock_client: MagicMock, tmp_path: Path) -> None:
+    mock_client.files.upload.return_value = _active_upload_mock()
+    mock_client.models.generate_content.return_value.text = json.dumps(FIXTURE)
+
+    metadata, image_paths, audio_path = _make_carousel_metadata(tmp_path, num_images=3, with_audio=True)
+    await extract(metadata)
+
+    uploaded = [call.kwargs["file"] for call in mock_client.files.upload.call_args_list]
+    assert uploaded == [*image_paths, audio_path]
+
+
+@patch("pipeline.extractor._client")
+async def test_carousel_without_audio_uploads_only_images(mock_client: MagicMock, tmp_path: Path) -> None:
+    mock_client.files.upload.return_value = _active_upload_mock()
+    mock_client.models.generate_content.return_value.text = json.dumps(FIXTURE)
+
+    metadata, image_paths, _ = _make_carousel_metadata(tmp_path, num_images=2, with_audio=False)
+    await extract(metadata)
+
+    uploaded = [call.kwargs["file"] for call in mock_client.files.upload.call_args_list]
+    assert uploaded == image_paths
+
+
+@patch("pipeline.extractor._client")
+async def test_carousel_contents_include_all_uploaded_files_and_prompt(mock_client: MagicMock, tmp_path: Path) -> None:
+    active_files = [_active_upload_mock(), _active_upload_mock(), _active_upload_mock()]
+    mock_client.files.upload.side_effect = active_files
+    mock_client.models.generate_content.return_value.text = json.dumps(FIXTURE)
+
+    metadata, _, _ = _make_carousel_metadata(tmp_path, num_images=2, with_audio=True)
+    await extract(metadata)
+
+    contents = mock_client.models.generate_content.call_args.kwargs["contents"]
+    assert contents[:3] == active_files
+    assert isinstance(contents[3], str)
+
+
+@patch("pipeline.extractor._client")
+async def test_carousel_prompt_mentions_slides_not_video(mock_client: MagicMock, tmp_path: Path) -> None:
+    mock_client.files.upload.return_value = _active_upload_mock()
+    mock_client.models.generate_content.return_value.text = json.dumps(FIXTURE)
+
+    metadata, _, _ = _make_carousel_metadata(tmp_path)
+    await extract(metadata)
+
+    prompt = mock_client.models.generate_content.call_args.kwargs["contents"][-1]
+    assert "photo post" in prompt
+
+
+@patch("pipeline.extractor._client")
+async def test_non_carousel_prompt_still_mentions_video(mock_client: MagicMock, tmp_path: Path) -> None:
+    mock_client.files.upload.return_value = _active_upload_mock()
+    mock_client.models.generate_content.return_value.text = json.dumps(FIXTURE)
+
+    metadata, _ = _make_metadata(tmp_path)
+    await extract(metadata)
+
+    prompt = mock_client.models.generate_content.call_args.kwargs["contents"][-1]
+    assert "this video" in prompt
 
 
 # --- AC3 & AC4: polling path and FAILED state guard ---

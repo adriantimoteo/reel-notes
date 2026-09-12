@@ -1,13 +1,14 @@
 # reel-notes
 
-A personal Telegram bot that captures Instagram Reels, TikTok videos, and YouTube Shorts and saves them as structured notes in your Obsidian vault.
+A personal Telegram bot that captures Instagram Reels, TikTok videos and photo slideshows, and YouTube Shorts, and saves them as structured notes in your Obsidian vault.
 
-Send a link to your bot → it downloads the video, analyses it with Gemini, classifies the content type, and writes a formatted note.
+Send a link to your bot → it downloads the video (or photo slides), analyses it with Gemini, classifies the content type, and writes a formatted note.
 
 ## What it does
 
 - Detects reel/short links in Telegram messages
 - Downloads the video via yt-dlp
+- Also handles TikTok photo-mode slideshows and Instagram photo carousels — every slide image (and TikTok's background audio track, when present) is sent to Gemini the same way a video would be
 - Sends it to Gemini for transcription, OCR, summarisation, and structured extraction
 - Classifies each reel as `list`, `tutorial`, or `other` and renders the note accordingly
 - Writes a Markdown note to your Obsidian vault with YAML frontmatter
@@ -166,9 +167,11 @@ type: other
 
 | Platform | URL types |
 |---|---|
-| Instagram | `/reel/`, `/p/`, `/tv/` |
-| TikTok | `tiktok.com/@user/video/`, `tiktok.com/t/`, `vm.tiktok.com/`, `vt.tiktok.com/` |
+| Instagram | `/reel/`, `/p/` (single posts and photo/video carousels), `/tv/` |
+| TikTok | `tiktok.com/@user/video/`, `tiktok.com/@user/photo/` (slideshows), `tiktok.com/t/`, `vm.tiktok.com/`, `vt.tiktok.com/` |
 | YouTube | `/shorts/`, `/watch?v=` |
+
+TikTok photo-mode posts and Instagram carousels are fetched with [gallery-dl](https://github.com/mikf/gallery-dl) instead of yt-dlp, which doesn't support either — Instagram carousel auth reuses the same `YTDLP_COOKIES_FILE`/`YTDLP_COOKIES_FROM_BROWSER` config below. YouTube's 2026 image-carousel Shorts format isn't supported — a matching URL fails with a clear "not supported yet" message rather than a generic error.
 
 ## Development
 

@@ -35,6 +35,27 @@ def test_deletes_all_video_extensions(tmp_path: Path) -> None:
     assert not any(tmp_path.glob("*.m4v"))
 
 
+def test_deletes_image_and_audio_extensions_from_carousel_slides(tmp_path: Path) -> None:
+    (tmp_path / "a.jpg").write_bytes(b"x")
+    (tmp_path / "b.jpeg").write_bytes(b"x")
+    (tmp_path / "c.png").write_bytes(b"x")
+    (tmp_path / "d.webp").write_bytes(b"x")
+    (tmp_path / "e.m4a").write_bytes(b"x")
+    (tmp_path / "f.mp3").write_bytes(b"x")
+    (tmp_path / "notes.txt").write_text("keep me")
+
+    count = cleanup_temp_dir(tmp_path)
+
+    assert count == 6
+    assert not any(tmp_path.glob("*.jpg"))
+    assert not any(tmp_path.glob("*.jpeg"))
+    assert not any(tmp_path.glob("*.png"))
+    assert not any(tmp_path.glob("*.webp"))
+    assert not any(tmp_path.glob("*.m4a"))
+    assert not any(tmp_path.glob("*.mp3"))
+    assert (tmp_path / "notes.txt").exists()
+
+
 # --- AC2: empty directory returns 0 ---
 
 def test_empty_directory_returns_zero(tmp_path: Path) -> None:

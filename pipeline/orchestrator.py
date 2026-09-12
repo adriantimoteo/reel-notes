@@ -15,6 +15,7 @@ from pipeline.exceptions import (
     ExtractionError,
     ReelCaptureError,
     StorageError,
+    UnsupportedCarouselError,
     UnsupportedPlatformError,
     VaultWriteError,
 )
@@ -91,10 +92,11 @@ async def run(
                 logger.error("extraction failed for %s: %s", url, e)
                 raise ExtractionError(cause=e) from e
         finally:
-            try:
-                metadata.video_path.unlink(missing_ok=True)
-            except Exception as cleanup_exc:
-                logger.warning("failed to delete temp file %s: %s", metadata.video_path, cleanup_exc)
+            for temp_path in metadata.temp_paths():
+                try:
+                    temp_path.unlink(missing_ok=True)
+                except Exception as cleanup_exc:
+                    logger.warning("failed to delete temp file %s: %s", temp_path, cleanup_exc)
 
         await repository.update_extraction(conn, reel_id, extraction)
         logger.info("extraction complete for %s", url)
@@ -119,7 +121,9 @@ async def run(
         await status.update(f"saved · {note_path.name}")
 
     except ReelCaptureError as exc:
-        if isinstance(exc, UnsupportedPlatformError):
+        if isinstance(exc, UnsupportedCarouselError):
+            msg = "unsupported · YouTube photo/carousel posts aren't supported yet"
+        elif isinstance(exc, UnsupportedPlatformError):
             msg = "unsupported URL"
         elif isinstance(exc, DurationCapExceeded):
             msg = f"rejected · video is {exc.duration}s (limit {exc.cap}s)"

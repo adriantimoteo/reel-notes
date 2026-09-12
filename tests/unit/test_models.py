@@ -100,6 +100,68 @@ class TestReelMetadata:
         assert meta.posted_at == dt
         assert isinstance(meta.posted_at, datetime)
 
+    def test_video_path_defaults_to_none(self):
+        meta = ReelMetadata(
+            source_url="https://www.tiktok.com/@user/photo/123",
+            platform="tiktok",
+            author=None,
+            posted_at=None,
+            title=None,
+            caption=None,
+            image_paths=[Path("/tmp/1.jpeg")],
+        )
+        assert meta.video_path is None
+
+    def test_image_paths_and_audio_path_default(self):
+        meta = ReelMetadata(
+            source_url="https://example.com/reel",
+            platform="instagram",
+            author=None,
+            posted_at=None,
+            title=None,
+            caption=None,
+            video_path=Path("/tmp/v.mp4"),
+        )
+        assert meta.image_paths == []
+        assert meta.audio_path is None
+
+    def test_image_paths_default_is_not_shared(self):
+        meta1 = ReelMetadata(
+            source_url="https://example.com/1", platform="tiktok", author=None,
+            posted_at=None, title=None, caption=None,
+        )
+        meta2 = ReelMetadata(
+            source_url="https://example.com/2", platform="tiktok", author=None,
+            posted_at=None, title=None, caption=None,
+        )
+        meta1.image_paths.append(Path("/tmp/a.jpeg"))
+        assert meta2.image_paths == []
+
+    def test_temp_paths_returns_video_path_only(self):
+        meta = ReelMetadata(
+            source_url="https://example.com/reel", platform="instagram", author=None,
+            posted_at=None, title=None, caption=None, video_path=Path("/tmp/v.mp4"),
+        )
+        assert meta.temp_paths() == [Path("/tmp/v.mp4")]
+
+    def test_temp_paths_returns_images_and_audio(self):
+        meta = ReelMetadata(
+            source_url="https://www.tiktok.com/@user/photo/123",
+            platform="tiktok", author=None, posted_at=None, title=None, caption=None,
+            image_paths=[Path("/tmp/1.jpeg"), Path("/tmp/2.jpeg")],
+            audio_path=Path("/tmp/audio.mp3"),
+        )
+        assert meta.temp_paths() == [
+            Path("/tmp/1.jpeg"), Path("/tmp/2.jpeg"), Path("/tmp/audio.mp3"),
+        ]
+
+    def test_temp_paths_empty_when_nothing_downloaded(self):
+        meta = ReelMetadata(
+            source_url="https://example.com/reel", platform="instagram", author=None,
+            posted_at=None, title=None, caption=None,
+        )
+        assert meta.temp_paths() == []
+
 
 class TestItem:
     def test_instantiation_with_representative_values(self):
