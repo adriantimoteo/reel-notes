@@ -173,6 +173,12 @@ type: other
 
 TikTok photo-mode posts and Instagram carousels are fetched with [gallery-dl](https://github.com/mikf/gallery-dl) instead of yt-dlp, which doesn't support either — Instagram carousel auth reuses the same `YTDLP_COOKIES_FILE`/`YTDLP_COOKIES_FROM_BROWSER` config below. YouTube's 2026 image-carousel Shorts format isn't supported — a matching URL fails with a clear "not supported yet" message rather than a generic error.
 
+## Gemini model and costs
+
+The model is `gemini-3.5-flash`, set as `MODEL_NAME` in `pipeline/extractor.py` — that's the one place to change it if Google deprecates it later. If a configured model is ever retired, extraction fails with a clear `Gemini model retired — update pipeline.extractor.MODEL_NAME` status message instead of a raw API error.
+
+For personal-scale use (a handful of reels a day) this comfortably stays within Gemini's free tier — Google no longer publishes a fixed free-tier rate-limit table, so check the actual current numbers for your project at [AI Studio](https://aistudio.google.com)'s usage page rather than trusting any number quoted elsewhere, including here.
+
 ## Development
 
 ```bash
