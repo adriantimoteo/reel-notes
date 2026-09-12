@@ -42,15 +42,7 @@ def init_db(db_path: Path) -> None:
             conn.execute("ALTER TABLE reels ADD COLUMN content_type TEXT")
         except sqlite3.OperationalError:
             pass  # column already exists (fresh DB or repeated init_db call)
-        conn.execute("""
-            CREATE TABLE IF NOT EXISTS items (
-                id          INTEGER PRIMARY KEY,
-                reel_id     INTEGER REFERENCES reels(id) ON DELETE CASCADE,
-                name        TEXT NOT NULL,
-                item_type   TEXT,
-                description TEXT
-            )
-        """)
+        conn.execute("DROP TABLE IF EXISTS items")
         conn.commit()
     finally:
         conn.close()

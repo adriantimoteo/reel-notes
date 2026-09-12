@@ -63,17 +63,6 @@ async def test_save_reel_returns_positive_integer_reel_id() -> None:
     assert reel_id > 0
 
 
-async def test_save_reel_inserts_items() -> None:
-    conn = make_conn()
-    reel_id = await save_reel(conn, METADATA, EXTRACTION)
-    rows = conn.execute(
-        "SELECT * FROM items WHERE reel_id = ?", (reel_id,)
-    ).fetchall()
-    assert len(rows) == len(EXTRACTION.items)
-    names = {row["name"] for row in rows}
-    assert names == {item.name for item in EXTRACTION.items}
-
-
 async def test_update_vault_path_persists() -> None:
     conn = make_conn()
     reel_id = await save_reel(conn, METADATA, EXTRACTION)
@@ -150,27 +139,6 @@ async def test_update_extraction_only_affects_target_reel() -> None:
     other_row = await find_by_url(conn, other_metadata.source_url)
     assert other_row is not None
     assert other_row["transcription"] == ""
-
-
-async def test_update_extraction_persists_items() -> None:
-    conn = make_conn()
-    empty = ExtractionResult(transcription="", ocr_text="", summary="", title="")
-    reel_id = await save_reel(conn, METADATA, empty)
-    updated = ExtractionResult(
-        transcription="t",
-        ocr_text="o",
-        summary="s",
-        title="t",
-        items=[
-            Item(name="Place A", item_type="place", description="Desc A"),
-            Item(name="Place B", item_type="restaurant", description="Desc B"),
-        ],
-    )
-    await update_extraction(conn, reel_id, updated)
-    count = conn.execute(
-        "SELECT COUNT(*) FROM items WHERE reel_id = ?", (reel_id,)
-    ).fetchone()[0]
-    assert count == 2
 
 
 async def test_delete_by_url_removes_row() -> None:

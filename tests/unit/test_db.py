@@ -37,11 +37,25 @@ def test_reels_table_columns(conn: sqlite3.Connection) -> None:
     assert expected == columns
 
 
-def test_items_table_columns(conn: sqlite3.Connection) -> None:
-    info = conn.execute("PRAGMA table_info(items)").fetchall()
-    columns = {row["name"] for row in info}
-    expected = {"id", "reel_id", "name", "item_type", "description"}
-    assert expected == columns
+def test_items_table_does_not_exist(conn: sqlite3.Connection) -> None:
+    row = conn.execute(
+        "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'items'"
+    ).fetchone()
+    assert row is None
+
+
+def test_init_db_drops_preexisting_items_table(db_path: Path) -> None:
+    conn = get_connection(db_path)
+    conn.execute("CREATE TABLE items (id INTEGER PRIMARY KEY, reel_id INTEGER, name TEXT)")
+    conn.commit()
+
+    init_db(db_path)
+
+    row = conn.execute(
+        "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'items'"
+    ).fetchone()
+    assert row is None
+    conn.close()
 
 
 def test_duplicate_source_url_raises(conn: sqlite3.Connection) -> None:
@@ -53,25 +67,6 @@ def test_duplicate_source_url_raises(conn: sqlite3.Connection) -> None:
         conn.execute(
             "INSERT INTO reels (source_url) VALUES (?)", ("https://example.com/reel/1",)
         )
-
-
-def test_cascade_delete_removes_items(conn: sqlite3.Connection) -> None:
-    conn.execute(
-        "INSERT INTO reels (source_url) VALUES (?)", ("https://example.com/reel/2",)
-    )
-    reel_id = conn.execute("SELECT last_insert_rowid()").fetchone()[0]
-    conn.execute(
-        "INSERT INTO items (reel_id, name) VALUES (?, ?)", (reel_id, "Widget")
-    )
-    conn.commit()
-
-    conn.execute("DELETE FROM reels WHERE id = ?", (reel_id,))
-    conn.commit()
-
-    items = conn.execute(
-        "SELECT * FROM items WHERE reel_id = ?", (reel_id,)
-    ).fetchall()
-    assert items == []
 
 
 def test_init_db_is_idempotent(db_path: Path) -> None:

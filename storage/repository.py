@@ -5,7 +5,7 @@ import logging
 import sqlite3
 from datetime import datetime, timezone
 
-from pipeline.models import ExtractionResult, Item, ReelMetadata
+from pipeline.models import ExtractionResult, ReelMetadata
 
 logger = logging.getLogger(__name__)
 
@@ -19,15 +19,6 @@ def _find_by_url(conn: sqlite3.Connection, url: str) -> sqlite3.Row | None:
 
 async def find_by_url(conn: sqlite3.Connection, url: str) -> sqlite3.Row | None:
     return await asyncio.to_thread(_find_by_url, conn, url)
-
-
-def _save_items(conn: sqlite3.Connection, reel_id: int, items: list[Item]) -> None:
-    if not items:
-        return
-    conn.executemany(
-        "INSERT INTO items (reel_id, name, item_type, description) VALUES (?, ?, ?, ?)",
-        [(reel_id, item.name, item.item_type, item.description) for item in items],
-    )
 
 
 def _save_reel(
@@ -59,7 +50,6 @@ def _save_reel(
         ),
     )
     reel_id = cursor.lastrowid
-    _save_items(conn, reel_id, extraction.items)
     conn.commit()
     return reel_id
 
@@ -94,7 +84,6 @@ def _update_extraction(conn: sqlite3.Connection, reel_id: int, extraction: Extra
         "UPDATE reels SET transcription=?, ocr_text=?, summary=?, content_type=? WHERE id=?",
         (extraction.transcription, extraction.ocr_text, extraction.summary, extraction.content_type, reel_id),
     )
-    _save_items(conn, reel_id, extraction.items)
     conn.commit()
 
 
