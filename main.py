@@ -1,5 +1,6 @@
 """Entry point for the reel-capture-bot."""
 
+import argparse
 import asyncio
 import logging
 from pathlib import Path
@@ -7,6 +8,7 @@ from pathlib import Path
 from aiogram import Bot, Dispatcher
 
 import config
+from bot.drain import drain_pending
 from bot.handlers import register_handlers
 from output.writers import LocalFolderWriter
 from storage.db import get_connection, init_db
@@ -68,7 +70,17 @@ def cleanup_temp_dir(temp_dir: Path) -> int:
     return removed
 
 
-async def main() -> None:
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description="reel-capture-bot")
+    parser.add_argument(
+        "--once",
+        action="store_true",
+        help="process whatever messages are already queued, then exit (for scheduled/cron runs)",
+    )
+    return parser.parse_args()
+
+
+async def main(once: bool = False) -> None:
     validate_config()
     log_startup_config()
     n = cleanup_temp_dir(config.DOWNLOAD_TEMP_DIR)
@@ -81,8 +93,16 @@ async def main() -> None:
     vault_writer = LocalFolderWriter(config.VAULT_PATH, config.VAULT_NOTES_SUBDIR)
     register_handlers(dp, bot, conn, vault_writer)
     try:
-        logger.info("bot started")
-        await dp.start_polling(bot)
+        if once:
+            logger.info("draining pending updates")
+            processed = await drain_pending(bot, dp)
+            if processed is None:
+                logger.info("skipped — offline")
+            else:
+                logger.info("drained %d update(s)", processed)
+        else:
+            logger.info("bot started")
+            await dp.start_polling(bot)
     finally:
         conn.close()
         await bot.session.close()
@@ -90,4 +110,5 @@ async def main() -> None:
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    args = parse_args()
+    asyncio.run(main(once=args.once))

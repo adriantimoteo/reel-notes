@@ -66,6 +66,32 @@ To find your Telegram user ID, message [@userinfobot](https://t.me/userinfobot).
 uv run python main.py
 ```
 
+This runs continuously (long polling) — useful for active development, but it requires the machine to stay on and online.
+
+## Running on a schedule
+
+For a bot on a laptop that isn't on 24/7, running continuously doesn't make sense. Telegram holds messages sent to your bot until it next checks in (they aren't lost just because the bot wasn't running), so instead you can run the bot briefly on a schedule to pick up whatever's waiting:
+
+```bash
+uv run python main.py --once
+```
+
+This drains every message currently queued, processes them one at a time, and exits — it doesn't wait around for new messages. If the machine has no network access when it runs, it logs that and exits cleanly rather than erroring.
+
+**Windows Task Scheduler setup:**
+
+Quickest way — one command (runs only while you're logged in, no password needed):
+
+```powershell
+schtasks /create /tn "ReelNotesDrain" /tr 'powershell.exe -ExecutionPolicy Bypass -File "C:\path\to\reel-notes\scripts\run_once.ps1"' /sc hourly /f
+```
+
+Adjust `/sc hourly` (e.g. `/sc minute /mo 15`) for a different cadence — a missed run just gets picked up by the next one. To edit later (trigger, conditions, etc.), open Task Scheduler and find it under the task name you gave it (`ReelNotesDrain` above, at the library root).
+
+Equivalent via the Task Scheduler GUI: Create Task → Triggers: on a schedule, repeat every N minutes/hours, indefinitely → Actions: Start a program, `powershell.exe`, arguments `-ExecutionPolicy Bypass -File "C:\path\to\reel-notes\scripts\run_once.ps1"`. On a laptop, also uncheck "Start the task only if the computer is on AC power" under Conditions, and check "Run task as soon as possible after a scheduled start is missed" under Settings so it catches up after sleep.
+
+Output from each run is appended to `logs/drain.log` (not committed to git), since Task Scheduler doesn't show console output.
+
 ## Note format
 
 Each reel becomes a Markdown file in `VAULT_PATH/VAULT_NOTES_SUBDIR/`. The structure adapts to the content type.
