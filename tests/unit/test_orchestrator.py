@@ -225,6 +225,19 @@ async def test_run_deletes_old_note_when_force_true(tmp_path: Path) -> None:
     assert not old_note.exists(), "old note file should have been deleted"
 
 
+async def test_temp_video_deleted_when_save_reel_fails(tmp_path: Path) -> None:
+    """If save_reel raises, the downloaded temp video must still be cleaned up."""
+    metadata = _make_metadata(tmp_path)
+    status, _ = _make_status()
+
+    with patch("pipeline.orchestrator.repository.find_by_url", AsyncMock(return_value=None)), \
+         patch("pipeline.orchestrator.downloader.fetch", AsyncMock(return_value=metadata)), \
+         patch("pipeline.orchestrator.repository.save_reel", AsyncMock(side_effect=RuntimeError("db locked"))):
+        await run(URL, status, MagicMock(), MagicMock())
+
+    assert not metadata.video_path.exists(), "temp video should be deleted even when save_reel fails"
+
+
 async def test_run_no_file_deletion_when_note_path_is_null(tmp_path: Path) -> None:
     """When force_reprocess=True and vault_note_path is NULL, no file deletion is attempted."""
     metadata = _make_metadata(tmp_path)

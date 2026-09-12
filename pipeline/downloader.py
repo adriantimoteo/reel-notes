@@ -1,6 +1,5 @@
 """Video download logic."""
 
-import asyncio
 import logging
 import urllib.parse
 from datetime import datetime
@@ -11,8 +10,17 @@ import yt_dlp
 import config
 from pipeline.exceptions import DurationCapExceeded, UnsupportedPlatformError
 from pipeline.models import ReelMetadata
+from pipeline.retry import call_with_retry
 
 logger = logging.getLogger(__name__)
+
+DOWNLOAD_RETRY_ATTEMPTS = 3
+DOWNLOAD_RETRY_BASE_DELAY = 2.0
+
+
+def _is_retryable_download_error(e: Exception) -> bool:
+    """DurationCapExceeded/UnsupportedPlatformError are deterministic — retrying won't help."""
+    return not isinstance(e, (DurationCapExceeded, UnsupportedPlatformError))
 
 
 def detect_platform(url: str) -> str:
@@ -139,8 +147,20 @@ def normalize_metadata(info: dict, video_path: Path, platform: str, source_url: 
 async def fetch(url: str, max_duration: int | None = None) -> ReelMetadata:
     platform = detect_platform(url)
     canonical = canonicalize(url, platform)
-    info = await asyncio.to_thread(_fetch_info, canonical, max_duration)
-    video_path = await asyncio.to_thread(_download, canonical, config.DOWNLOAD_TEMP_DIR)
+    info = await call_with_retry(
+        lambda: _fetch_info(canonical, max_duration),
+        attempts=DOWNLOAD_RETRY_ATTEMPTS,
+        base_delay=DOWNLOAD_RETRY_BASE_DELAY,
+        is_retryable=_is_retryable_download_error,
+        description=f"fetch info for {canonical}",
+    )
+    video_path = await call_with_retry(
+        lambda: _download(canonical, config.DOWNLOAD_TEMP_DIR),
+        attempts=DOWNLOAD_RETRY_ATTEMPTS,
+        base_delay=DOWNLOAD_RETRY_BASE_DELAY,
+        is_retryable=_is_retryable_download_error,
+        description=f"download {canonical}",
+    )
     metadata = normalize_metadata(info, video_path, platform, canonical)
     logger.info("fetched metadata for %s", canonical)
     return metadata

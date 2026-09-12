@@ -1,11 +1,18 @@
 import json
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+from google.genai import errors as genai_errors
 
 from pipeline.exceptions import ExtractionError
-from pipeline.extractor import EXTRACTION_SCHEMA, MAX_POLL_ATTEMPTS, extract, parse_extraction_response
+from pipeline.extractor import (
+    EXTRACTION_SCHEMA,
+    MAX_POLL_ATTEMPTS,
+    _is_retryable_extraction_error,
+    extract,
+    parse_extraction_response,
+)
 from pipeline.models import ReelMetadata
 
 FIXTURE_PATH = Path(__file__).parent.parent / "fixtures" / "extraction_response.json"
@@ -256,3 +263,52 @@ async def test_type_hint_injected_into_prompt(mock_client: MagicMock, tmp_path: 
 
     prompt = mock_client.models.generate_content.call_args.kwargs["contents"][1]
     assert "tutorial" in prompt
+
+
+# --- retry-on-transient-failure ---
+
+
+def test_is_retryable_returns_true_for_server_error() -> None:
+    err = genai_errors.ServerError(500, {"message": "internal error"})
+    assert _is_retryable_extraction_error(err) is True
+
+
+def test_is_retryable_returns_true_for_rate_limit() -> None:
+    err = genai_errors.ClientError(429, {"message": "rate limited"})
+    assert _is_retryable_extraction_error(err) is True
+
+
+def test_is_retryable_returns_false_for_other_client_error() -> None:
+    err = genai_errors.ClientError(400, {"message": "bad request"})
+    assert _is_retryable_extraction_error(err) is False
+
+
+def test_is_retryable_returns_false_for_extraction_error() -> None:
+    assert _is_retryable_extraction_error(ExtractionError(cause=RuntimeError("bad state"))) is False
+
+
+@patch("pipeline.extractor._client")
+async def test_extract_retries_on_server_error_then_succeeds(mock_client: MagicMock, tmp_path: Path) -> None:
+    mock_client.files.upload.side_effect = [
+        genai_errors.ServerError(500, {"message": "internal error"}),
+        _active_upload_mock(),
+    ]
+    mock_client.models.generate_content.return_value.text = json.dumps(FIXTURE)
+
+    metadata, _ = _make_metadata(tmp_path)
+    with patch("pipeline.retry.asyncio.sleep", AsyncMock()):
+        result = await extract(metadata)
+
+    assert result.summary == FIXTURE["summary"]
+    assert mock_client.files.upload.call_count == 2
+
+
+@patch("pipeline.extractor._client")
+async def test_extract_does_not_retry_on_permanent_client_error(mock_client: MagicMock, tmp_path: Path) -> None:
+    mock_client.files.upload.side_effect = genai_errors.ClientError(400, {"message": "bad request"})
+
+    metadata, _ = _make_metadata(tmp_path)
+    with pytest.raises(genai_errors.ClientError):
+        await extract(metadata)
+
+    assert mock_client.files.upload.call_count == 1

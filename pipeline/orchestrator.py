@@ -71,19 +71,25 @@ async def run(
                     logger.warning("failed to delete old note %s: %s", existing_note_path, e)
             await repository.delete_by_url(conn, url)
 
-        reel_id = await repository.save_reel(
-            conn, metadata, ExtractionResult(transcription="", ocr_text="", summary="", title="")
-        )
-        logger.info("download complete for %s", url)
-        await status.update("extracting…")
-
         try:
-            extraction = await extractor.extract(metadata, type_hint=type_hint)
-        except ReelCaptureError:
-            raise
-        except Exception as e:
-            logger.error("extraction failed for %s: %s", url, e)
-            raise ExtractionError(cause=e) from e
+            try:
+                reel_id = await repository.save_reel(
+                    conn, metadata, ExtractionResult(transcription="", ocr_text="", summary="", title="")
+                )
+            except Exception as e:
+                logger.error("storage failed for %s: %s", url, e)
+                raise StorageError(cause=e) from e
+
+            logger.info("download complete for %s", url)
+            await status.update("extracting…")
+
+            try:
+                extraction = await extractor.extract(metadata, type_hint=type_hint)
+            except ReelCaptureError:
+                raise
+            except Exception as e:
+                logger.error("extraction failed for %s: %s", url, e)
+                raise ExtractionError(cause=e) from e
         finally:
             try:
                 metadata.video_path.unlink(missing_ok=True)

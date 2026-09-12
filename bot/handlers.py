@@ -1,8 +1,10 @@
 """Telegram message and command handlers."""
 
+import functools
 import logging
 import re
 import sqlite3
+from typing import Awaitable, Callable
 
 from aiogram import Bot, Dispatcher
 from aiogram.filters import Command
@@ -14,6 +16,25 @@ from output.writers import VaultWriter
 from pipeline import orchestrator
 
 logger = logging.getLogger(__name__)
+
+
+def require_allowed_user(
+    handler: Callable[[Message], Awaitable[None]],
+) -> Callable[[Message], Awaitable[None]]:
+    """Silently drops any message not from the configured owner."""
+
+    @functools.wraps(handler)
+    async def wrapper(message: Message) -> None:
+        if message.from_user is None or message.from_user.id != config.TELEGRAM_ALLOWED_USER_ID:
+            logger.debug(
+                "ignored: wrong user %s",
+                message.from_user.id if message.from_user else None,
+            )
+            return
+        await handler(message)
+
+    return wrapper
+
 
 _REEL_PATTERNS: list[tuple[re.Pattern[str], str]] = [
     (re.compile(r"instagram\.com/(?:reel|p|tv)/[\w-]+"), "instagram"),
@@ -77,18 +98,13 @@ def _parse_reprocess_args(text: str) -> tuple[str | None, str | None, str | None
     return url, type_hint, None
 
 
+@require_allowed_user
 async def handle_reprocess(message: Message) -> None:
     assert _bot is not None and _conn is not None and _vault_writer is not None
     logger.debug(
         "reprocess command from user %s",
         message.from_user.id if message.from_user else None,
     )
-    if message.from_user is None or message.from_user.id != config.TELEGRAM_ALLOWED_USER_ID:
-        logger.debug(
-            "ignored: wrong user %s",
-            message.from_user.id if message.from_user else None,
-        )
-        return
 
     raw_text = message.text or ""
     url, type_hint, error = _parse_reprocess_args(raw_text)
@@ -104,12 +120,10 @@ async def handle_reprocess(message: Message) -> None:
     await orchestrator.run(url, status, _conn, _vault_writer, force_reprocess=True, type_hint=type_hint)
 
 
+@require_allowed_user
 async def handle_message(message: Message) -> None:
     assert _bot is not None and _conn is not None and _vault_writer is not None
     logger.debug("message received from user %s", message.from_user.id if message.from_user else None)
-    if message.from_user is None or message.from_user.id != config.TELEGRAM_ALLOWED_USER_ID:
-        logger.debug("ignored: wrong user %s", message.from_user.id if message.from_user else None)
-        return
 
     if not message.text:
         return
@@ -127,12 +141,10 @@ async def handle_message(message: Message) -> None:
     await orchestrator.run(url, status, _conn, _vault_writer)
 
 
+@require_allowed_user
 async def handle_force(message: Message) -> None:
     assert _bot is not None and _conn is not None and _vault_writer is not None
     logger.debug("force command from user %s", message.from_user.id if message.from_user else None)
-    if message.from_user is None or message.from_user.id != config.TELEGRAM_ALLOWED_USER_ID:
-        logger.debug("ignored: wrong user %s", message.from_user.id if message.from_user else None)
-        return
 
     if not message.text:
         return

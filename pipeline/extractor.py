@@ -1,17 +1,29 @@
-import asyncio
 import json
 import logging
 import time
 
 import google.genai as genai
+from google.genai import errors as genai_errors
 
 import config
 from pipeline.exceptions import ExtractionError
 from pipeline.models import ExtractionResult, Ingredient, Item, ReelMetadata, TutorialStep
+from pipeline.retry import call_with_retry
 
 logger = logging.getLogger(__name__)
 
 MAX_POLL_ATTEMPTS = 30  # 60 seconds total at 2s intervals
+EXTRACTION_RETRY_ATTEMPTS = 3
+EXTRACTION_RETRY_BASE_DELAY = 5.0
+
+
+def _is_retryable_extraction_error(e: Exception) -> bool:
+    """Retry Gemini 5xx errors and 429 rate limits; other 4xx errors are permanent."""
+    if isinstance(e, genai_errors.ServerError):
+        return True
+    if isinstance(e, genai_errors.ClientError) and getattr(e, "code", None) == 429:
+        return True
+    return False
 
 _client: genai.Client | None = None
 
@@ -176,4 +188,10 @@ def _extract_sync(metadata: ReelMetadata, type_hint: str | None = None) -> Extra
 
 
 async def extract(metadata: ReelMetadata, type_hint: str | None = None) -> ExtractionResult:
-    return await asyncio.to_thread(_extract_sync, metadata, type_hint)
+    return await call_with_retry(
+        lambda: _extract_sync(metadata, type_hint),
+        attempts=EXTRACTION_RETRY_ATTEMPTS,
+        base_delay=EXTRACTION_RETRY_BASE_DELAY,
+        is_retryable=_is_retryable_extraction_error,
+        description=f"extraction for {metadata.source_url}",
+    )

@@ -172,16 +172,35 @@ async def test_storage_exception_produces_save_failed(tmp_path: Path) -> None:
     assert any("save failed" in u for u in updates), f"Got: {updates}"
 
 
+# --- save_reel failure is wrapped as StorageError, not left generic ---
+
+async def test_save_reel_failure_produces_save_failed_message() -> None:
+    conn = _make_conn()
+    status, updates = _make_status()
+
+    with patch("pipeline.orchestrator.downloader.fetch", AsyncMock(return_value=MagicMock())), \
+         patch("pipeline.orchestrator.repository.find_by_url", AsyncMock(return_value=None)), \
+         patch("pipeline.orchestrator.repository.save_reel", AsyncMock(side_effect=RuntimeError("boom"))):
+        await run("https://instagram.com/reel/test", status, conn, MagicMock())
+
+    assert any("save failed" in u for u in updates), f"Got: {updates}"
+
+
 # --- AC4: unexpected exception falls through to generic message ---
 
 async def test_unexpected_exception_produces_generic_message() -> None:
     conn = _make_conn()
     status, updates = _make_status()
 
-    # save_reel is outside inner try/except blocks — a RuntimeError propagates to outer handler
-    with patch("pipeline.orchestrator.downloader.fetch", AsyncMock(return_value=MagicMock())), \
+    # renderer.generate_filename is called outside any try/except — an unhandled
+    # exception there propagates to the outer generic-fallback handler
+    metadata = MagicMock()
+    with patch("pipeline.orchestrator.downloader.fetch", AsyncMock(return_value=metadata)), \
+         patch("pipeline.orchestrator.extractor.extract", AsyncMock(return_value=EXTRACTION)), \
          patch("pipeline.orchestrator.repository.find_by_url", AsyncMock(return_value=None)), \
-         patch("pipeline.orchestrator.repository.save_reel", AsyncMock(side_effect=RuntimeError("boom"))):
+         patch("pipeline.orchestrator.repository.save_reel", AsyncMock(return_value=1)), \
+         patch("pipeline.orchestrator.repository.update_extraction", AsyncMock()), \
+         patch("pipeline.orchestrator.renderer.generate_filename", side_effect=RuntimeError("boom")):
         await run("https://instagram.com/reel/test", status, conn, MagicMock())
 
     assert any("pipeline error" in u for u in updates), f"Got: {updates}"

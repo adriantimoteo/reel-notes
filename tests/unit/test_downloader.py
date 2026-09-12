@@ -2,12 +2,20 @@
 
 from datetime import datetime
 from pathlib import Path
-from unittest.mock import MagicMock, call, patch
+from unittest.mock import AsyncMock, MagicMock, call, patch
 
 import pytest
 
 import config
-from pipeline.downloader import _apply_cookies, _fetch_info, canonicalize, detect_platform, fetch, normalize_metadata
+from pipeline.downloader import (
+    _apply_cookies,
+    _fetch_info,
+    _is_retryable_download_error,
+    canonicalize,
+    detect_platform,
+    fetch,
+    normalize_metadata,
+)
 from pipeline.exceptions import DurationCapExceeded, ReelCaptureError, UnsupportedPlatformError
 from pipeline.models import ReelMetadata
 
@@ -276,3 +284,56 @@ async def test_fetch_calls_fetch_info_before_download(
     await fetch("https://www.youtube.com/shorts/abc123")
 
     assert call_order == ["_fetch_info", "_download"]
+
+
+# --- retry-on-transient-failure ---
+
+
+def test_is_retryable_returns_false_for_duration_cap_exceeded() -> None:
+    assert _is_retryable_download_error(DurationCapExceeded(duration=200, cap=120)) is False
+
+
+def test_is_retryable_returns_false_for_unsupported_platform() -> None:
+    assert _is_retryable_download_error(UnsupportedPlatformError("https://x.com")) is False
+
+
+def test_is_retryable_returns_true_for_other_errors() -> None:
+    assert _is_retryable_download_error(RuntimeError("network blip")) is True
+
+
+@patch("pipeline.downloader._download")
+@patch("pipeline.downloader._fetch_info")
+async def test_fetch_retries_fetch_info_on_transient_failure(
+    mock_fetch_info: MagicMock,
+    mock_download: MagicMock,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(config, "DOWNLOAD_TEMP_DIR", Path("/tmp/downloads"))
+    mock_fetch_info.side_effect = [
+        RuntimeError("transient"),
+        {"duration": 60, "uploader": "TestUser", "title": "Test", "tags": [], "upload_date": "20260312"},
+    ]
+    mock_download.return_value = Path("/tmp/downloads/abc123.mp4")
+
+    with patch("pipeline.retry.asyncio.sleep", AsyncMock()):
+        result = await fetch("https://www.youtube.com/shorts/abc123")
+
+    assert isinstance(result, ReelMetadata)
+    assert mock_fetch_info.call_count == 2
+
+
+@patch("pipeline.downloader._download")
+@patch("pipeline.downloader._fetch_info")
+async def test_fetch_does_not_retry_duration_cap_exceeded(
+    mock_fetch_info: MagicMock,
+    mock_download: MagicMock,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(config, "DOWNLOAD_TEMP_DIR", Path("/tmp/downloads"))
+    mock_fetch_info.side_effect = DurationCapExceeded(duration=200, cap=120)
+
+    with pytest.raises(DurationCapExceeded):
+        await fetch("https://www.youtube.com/shorts/abc123")
+
+    assert mock_fetch_info.call_count == 1
+    mock_download.assert_not_called()
