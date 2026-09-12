@@ -18,7 +18,9 @@ logger = logging.getLogger(__name__)
 _REEL_PATTERNS: list[tuple[re.Pattern[str], str]] = [
     (re.compile(r"instagram\.com/(?:reel|p|tv)/[\w-]+"), "instagram"),
     (re.compile(r"tiktok\.com/@[\w.]+/video/\d+"), "tiktok"),
+    (re.compile(r"tiktok\.com/t/[\w]+"), "tiktok"),
     (re.compile(r"vm\.tiktok\.com/[\w]+"), "tiktok"),
+    (re.compile(r"vt\.tiktok\.com/[\w]+"), "tiktok"),
     (re.compile(r"youtube\.com/shorts/[\w-]+"), "youtube"),
     (re.compile(r"youtube\.com/watch\?(?:[\w=&]*&)?v=[\w-]+"), "youtube"),
     (re.compile(r"youtu\.be/[\w-]+"), "youtube"),

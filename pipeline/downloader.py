@@ -24,7 +24,7 @@ def detect_platform(url: str) -> str:
     if host == "instagram.com":
         if any(path.startswith(prefix) for prefix in ("/reel/", "/p/", "/tv/")):
             return "instagram"
-    elif host in ("tiktok.com", "vm.tiktok.com"):
+    elif host in ("tiktok.com", "vm.tiktok.com", "vt.tiktok.com"):
         return "tiktok"
     elif host == "youtube.com":
         if path.startswith("/shorts/") or path.startswith("/watch"):

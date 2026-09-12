@@ -20,6 +20,8 @@ from pipeline.models import ReelMetadata
         ("https://www.instagram.com/tv/ABC123/", "instagram"),
         ("https://www.tiktok.com/@user/video/123456", "tiktok"),
         ("https://vm.tiktok.com/shortcode/", "tiktok"),
+        ("https://vt.tiktok.com/shortcode/", "tiktok"),
+        ("https://www.tiktok.com/t/shortcode/", "tiktok"),
         ("https://www.youtube.com/shorts/ABC123", "youtube"),
         ("https://www.youtube.com/watch?v=ABC123", "youtube"),
         ("https://youtu.be/ABC123", "youtube"),

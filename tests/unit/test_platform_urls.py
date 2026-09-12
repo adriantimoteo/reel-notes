@@ -20,6 +20,8 @@ from pipeline.exceptions import UnsupportedPlatformError
     # TikTok
     ("https://www.tiktok.com/@user/video/123456789", "tiktok"),
     ("https://vm.tiktok.com/ZMeXXXXXX/",            "tiktok"),
+    ("https://vt.tiktok.com/ZSeXXXXXX/",            "tiktok"),
+    ("https://www.tiktok.com/t/ZTeXXXXXX/",         "tiktok"),
     # YouTube
     ("https://www.youtube.com/shorts/dQw4w9WgXcQ",  "youtube"),
     ("https://www.youtube.com/watch?v=dQw4w9WgXcQ", "youtube"),

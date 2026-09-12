@@ -131,7 +131,7 @@ type: other
 | Platform | URL types |
 |---|---|
 | Instagram | `/reel/`, `/p/`, `/tv/` |
-| TikTok | `tiktok.com/@user/video/`, `vm.tiktok.com/` |
+| TikTok | `tiktok.com/@user/video/`, `tiktok.com/t/`, `vm.tiktok.com/`, `vt.tiktok.com/` |
 | YouTube | `/shorts/`, `/watch?v=` |
 
 ## Development

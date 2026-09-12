@@ -72,6 +72,8 @@ async def test_wrong_user_no_reply(patch_config_and_deps) -> None:
     ("https://www.instagram.com/tv/abc123/", "instagram"),
     ("https://www.tiktok.com/@user/video/1234567890", "tiktok"),
     ("https://vm.tiktok.com/ZMshortcode/", "tiktok"),
+    ("https://vt.tiktok.com/ZSshortcode/", "tiktok"),
+    ("https://www.tiktok.com/t/ZTshortcode/", "tiktok"),
     ("https://www.youtube.com/shorts/abc123", "youtube"),
     ("https://www.youtube.com/watch?v=abc123", "youtube"),
     ("https://youtu.be/abc123", "youtube"),
