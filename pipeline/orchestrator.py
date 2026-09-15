@@ -40,24 +40,29 @@ async def run(
     if "://" not in url:
         url = "https://" + url
 
+    try:
+        canonical_url, _ = await downloader.resolve_canonical_url(url)
+    except UnsupportedPlatformError:
+        canonical_url = url
+
     existing_note_path: str | None = None
 
     if not force_reprocess:
-        existing = await repository.find_by_url(conn, url)
+        existing = await repository.find_by_url(conn, canonical_url)
         if existing:
-            logger.info("duplicate detected — %s", url)
+            logger.info("duplicate detected — %s", canonical_url)
             note_path = existing["vault_note_path"] or "(note not yet written)"
             await status.update(f"already captured · {note_path}")
             return
     else:
-        existing = await repository.find_by_url(conn, url)
+        existing = await repository.find_by_url(conn, canonical_url)
         existing_note_path = existing["vault_note_path"] if existing else None
 
     try:
         await status.update("downloading…")
         try:
             max_duration = config.FORCE_MAX_VIDEO_DURATION_SECONDS if skip_length_check else None
-            metadata = await downloader.fetch(url, max_duration=max_duration)
+            metadata = await downloader.fetch(canonical_url, max_duration=max_duration)
         except (DurationCapExceeded, UnsupportedPlatformError):
             raise
         except Exception as e:
@@ -72,7 +77,7 @@ async def run(
                     logger.info("deleted old note: %s", existing_note_path)
                 except Exception as e:
                     logger.warning("failed to delete old note %s: %s", existing_note_path, e)
-            await repository.delete_by_url(conn, url)
+            await repository.delete_by_url(conn, canonical_url)
 
         try:
             try:

@@ -289,7 +289,11 @@ def normalize_metadata(info: dict, video_path: Path, platform: str, source_url: 
     )
 
 
-async def fetch(url: str, max_duration: int | None = None) -> ReelMetadata:
+async def resolve_canonical_url(url: str) -> tuple[str, str]:
+    """Returns (canonical_url, platform). The only network call this makes is an
+    optional HEAD request to resolve a TikTok shortlink — safe to call ahead of a
+    full fetch() so callers can key DB lookups on the same URL fetch() will end up
+    storing, instead of on whatever raw/shortlink form the caller passed in."""
     platform = detect_platform(url)
     canonical = canonicalize(url, platform)
 
@@ -299,6 +303,12 @@ async def fetch(url: str, max_duration: int | None = None) -> ReelMetadata:
             canonical = canonicalize(resolved, platform)
         except Exception as e:
             logger.warning("failed to resolve TikTok short link %s: %s", canonical, e)
+
+    return canonical, platform
+
+
+async def fetch(url: str, max_duration: int | None = None) -> ReelMetadata:
+    canonical, platform = await resolve_canonical_url(url)
 
     if platform == "tiktok" and _is_tiktok_photo_post(canonical):
         _apply_gallery_dl_cookies()
