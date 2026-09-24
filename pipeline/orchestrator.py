@@ -4,8 +4,6 @@ import asyncio
 import logging
 import sqlite3
 
-from google.genai import errors as genai_errors
-
 import config
 from bot.status import StatusMessage
 from output import renderer
@@ -22,6 +20,7 @@ from pipeline.exceptions import (
     VaultWriteError,
 )
 from pipeline.models import ExtractionResult
+from reelkit import gemini
 from storage import repository
 
 logger = logging.getLogger(__name__)
@@ -144,7 +143,7 @@ async def run(
                 msg = f"download failed · {exc.cause}"
         elif isinstance(exc, ExtractionError):
             cause = exc.cause
-            if isinstance(cause, genai_errors.ClientError) and getattr(cause, "code", None) == 404:
+            if gemini.is_model_retired(cause):
                 detail = getattr(cause, "message", None) or str(cause)
                 msg = f"extraction failed · Gemini model retired — update pipeline.extractor.MODEL_NAME · {detail}"
             else:

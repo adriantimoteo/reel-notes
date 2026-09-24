@@ -292,7 +292,7 @@ async def test_non_carousel_prompt_still_mentions_video(mock_client: MagicMock, 
 
 # --- AC3 & AC4: polling path and FAILED state guard ---
 
-@patch("pipeline.extractor.time.sleep")
+@patch("reelkit.gemini.time.sleep")
 @patch("pipeline.extractor._client")
 async def test_polling_loop_calls_files_get_until_active(
     mock_client: MagicMock, mock_sleep: MagicMock, tmp_path: Path
@@ -313,7 +313,7 @@ async def test_polling_loop_calls_files_get_until_active(
     mock_sleep.assert_called_once_with(2)
 
 
-@patch("pipeline.extractor.time.sleep")
+@patch("reelkit.gemini.time.sleep")
 @patch("pipeline.extractor._client")
 async def test_failed_state_raises_extraction_error(
     mock_client: MagicMock, mock_sleep: MagicMock, tmp_path: Path
@@ -327,7 +327,7 @@ async def test_failed_state_raises_extraction_error(
         await extract(metadata)
 
 
-@patch("pipeline.extractor.time.sleep")
+@patch("reelkit.gemini.time.sleep")
 @patch("pipeline.extractor._client")
 async def test_max_poll_attempts_raises_extraction_error(
     mock_client: MagicMock, mock_sleep: MagicMock, tmp_path: Path

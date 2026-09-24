@@ -1,31 +1,19 @@
-import json
 import logging
-import time
-from pathlib import Path
 
 import google.genai as genai
-from google.genai import errors as genai_errors
 
 import config
-from pipeline.exceptions import ExtractionError
 from pipeline.models import ExtractionResult, Ingredient, Item, ReelMetadata, TutorialStep
-from reelkit.retry import call_with_retry
+from reelkit import gemini
+from reelkit.gemini import MAX_POLL_ATTEMPTS
 
 logger = logging.getLogger(__name__)
 
 MODEL_NAME = "gemini-3.5-flash"  # gemini-2.5-flash retires 2026-10-16 — bump this when Google deprecates again
-MAX_POLL_ATTEMPTS = 30  # 60 seconds total at 2s intervals
-EXTRACTION_RETRY_ATTEMPTS = 3
-EXTRACTION_RETRY_BASE_DELAY = 5.0
 
+__all__ = ["EXTRACTION_SCHEMA", "MAX_POLL_ATTEMPTS", "MODEL_NAME", "extract", "parse_extraction_response"]
 
-def _is_retryable_extraction_error(e: Exception) -> bool:
-    """Retry Gemini 5xx errors and 429 rate limits; other 4xx errors are permanent."""
-    if isinstance(e, genai_errors.ServerError):
-        return True
-    if isinstance(e, genai_errors.ClientError) and getattr(e, "code", None) == 429:
-        return True
-    return False
+_is_retryable_extraction_error = gemini.is_retryable_error
 
 _client: genai.Client | None = None
 
@@ -121,42 +109,15 @@ def parse_extraction_response(raw: dict) -> ExtractionResult:
     )
 
 
-def _upload_and_wait(client: genai.Client, path: Path):
-    file = client.files.upload(file=path)
-    attempts = 0
-    while file.state.name == "PROCESSING" and attempts < MAX_POLL_ATTEMPTS:
-        time.sleep(2)
-        file = client.files.get(name=file.name)
-        attempts += 1
-
-    if file.state.name != "ACTIVE":
-        raise ExtractionError(
-            cause=RuntimeError(f"Gemini file in unexpected state: {file.state.name}")
-        )
-    return file
-
-
-def _extract_sync(metadata: ReelMetadata, type_hint: str | None = None) -> ExtractionResult:
-    client = _get_client()
-
-    is_carousel = bool(metadata.image_paths)
-    if is_carousel:
-        upload_paths = [*metadata.image_paths]
-        if metadata.audio_path is not None:
-            upload_paths.append(metadata.audio_path)
-    else:
-        upload_paths = [metadata.video_path]
-
-    uploaded_files = [_upload_and_wait(client, path) for path in upload_paths]
-
+def _build_prompt(metadata: ReelMetadata, type_hint: str | None = None) -> str:
     type_hint_block = (
         f"\nOVERRIDE: Treat this reel as type \"{type_hint}\" regardless of content."
         if type_hint is not None
         else ""
     )
     caption_block = f"\nCaption: {metadata.caption}" if metadata.caption else ""
-    subject = "these slides from this photo post, in order," if is_carousel else "this video"
-    prompt = (
+    subject = "these slides from this photo post, in order," if gemini.is_carousel(metadata) else "this video"
+    return (
         f"Analyse {subject} and return a structured JSON response.\n"
         "\n"
         "Always extract these fields for every reel:\n"
@@ -189,25 +150,15 @@ def _extract_sync(metadata: ReelMetadata, type_hint: str | None = None) -> Extra
         f"{caption_block}"
     )
 
-    response = client.models.generate_content(
-        model=MODEL_NAME,
-        contents=[*uploaded_files, prompt],
-        config=genai.types.GenerateContentConfig(
-            response_mime_type="application/json",
-            response_schema=EXTRACTION_SCHEMA,
-        ),
-    )
-
-    logger.info("extraction complete for %s", metadata.source_url)
-    raw = json.loads(response.text)
-    return parse_extraction_response(raw)
-
 
 async def extract(metadata: ReelMetadata, type_hint: str | None = None) -> ExtractionResult:
-    return await call_with_retry(
-        lambda: _extract_sync(metadata, type_hint),
-        attempts=EXTRACTION_RETRY_ATTEMPTS,
-        base_delay=EXTRACTION_RETRY_BASE_DELAY,
-        is_retryable=_is_retryable_extraction_error,
+    raw = await gemini.generate_structured(
+        _get_client(),
+        MODEL_NAME,
+        gemini.media_paths(metadata),
+        _build_prompt(metadata, type_hint),
+        EXTRACTION_SCHEMA,
         description=f"extraction for {metadata.source_url}",
     )
+    logger.info("extraction complete for %s", metadata.source_url)
+    return parse_extraction_response(raw)
