@@ -2,6 +2,7 @@
 name = "reelkit"
 version = "0.1.0"
 description = "Shared building blocks for reel bots: URL detection, Instagram/TikTok/YouTube Shorts download, and Gemini multimodal extraction."
+readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
     "gallery-dl>=1.32.12",

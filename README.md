@@ -182,8 +182,17 @@ For personal-scale use (a handful of reels a day) this comfortably stays within 
 ## Development
 
 ```bash
-uv run pytest          # run all tests
+uv run pytest          # run all tests (app + packages/reelkit)
 uv run pytest -q       # quiet output
 ```
 
 Dependencies are managed with uv. Never use `pip` directly.
+
+### Repo layout
+
+This repo is a uv workspace with two packages:
+
+- **The app** (repo root): `config.py`, `main.py`, `bot/`, `pipeline/`, `storage/`, `output/`. Everything specific to reel-notes lives here: config loading, the single-user auth, the notes prompt/schema, the orchestrator, SQLite, and the Obsidian writer.
+- **`packages/reelkit`**: shared building blocks with no app config: reel link detection and canonicalization (`reelkit.urls`), download via yt-dlp/gallery-dl (`reelkit.fetch`), schema-agnostic Gemini extraction (`reelkit.gemini`), retry, and optional aiogram helpers (`reelkit.telegram`, via the `telegram` extra).
+
+`pipeline/downloader.py` and `pipeline/extractor.py` are thin adapters that pass this app's config and prompt into reelkit. `packages/reelkit/tests/test_isolation.py` fails if reelkit ever imports app code or needs its env vars. See [packages/reelkit/README.md](packages/reelkit/README.md) for using it from another project.
