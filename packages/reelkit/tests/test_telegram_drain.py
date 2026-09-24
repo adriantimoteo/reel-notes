@@ -1,11 +1,11 @@
-"""Tests for bot.drain.drain_pending."""
+"""Tests for reelkit.telegram.drain.drain_pending."""
 
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from aiogram.exceptions import TelegramNetworkError
 
-from bot.drain import drain_pending
+from reelkit.telegram.drain import drain_pending
 
 
 def _make_update(update_id: int) -> MagicMock:

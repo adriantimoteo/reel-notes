@@ -5,7 +5,6 @@ import logging
 import sqlite3
 
 import config
-from bot.status import StatusMessage
 from output import renderer
 from output.writers import VaultWriter
 from pipeline import downloader, extractor
@@ -21,6 +20,7 @@ from pipeline.exceptions import (
 )
 from pipeline.models import ExtractionResult
 from reelkit import gemini
+from reelkit.status import StatusReporter
 from storage import repository
 
 logger = logging.getLogger(__name__)
@@ -29,7 +29,7 @@ logger = logging.getLogger(__name__)
 
 async def run(
     url: str,
-    status: StatusMessage,
+    status: StatusReporter,
     conn: sqlite3.Connection,
     vault_writer: VaultWriter,
     force_reprocess: bool = False,

@@ -3,14 +3,14 @@
 import argparse
 import asyncio
 import logging
-from pathlib import Path
 
 from aiogram import Bot, Dispatcher
 
 import config
-from bot.drain import drain_pending
 from bot.handlers import register_handlers
 from output.writers import LocalFolderWriter
+from reelkit.telegram.drain import drain_pending
+from reelkit.tempfiles import cleanup_temp_dir
 from storage.db import get_connection, init_db
 
 logging.basicConfig(
@@ -57,21 +57,6 @@ def log_startup_config() -> None:
     logger.info("bot token: %s", _redact(config.TELEGRAM_BOT_TOKEN))
     logger.info("gemini key: %s", _redact(config.GEMINI_API_KEY))
     logger.info("allowed user: %s", config.TELEGRAM_ALLOWED_USER_ID)
-
-
-def cleanup_temp_dir(temp_dir: Path) -> int:
-    """Delete stale video files. Returns count of files removed."""
-    temp_dir.mkdir(parents=True, exist_ok=True)
-    removed = 0
-    for ext in (
-        "*.mp4", "*.webm", "*.mkv", "*.m4v",
-        "*.jpg", "*.jpeg", "*.png", "*.webp",
-        "*.m4a", "*.mp3",
-    ):
-        for f in temp_dir.glob(ext):
-            f.unlink(missing_ok=True)
-            removed += 1
-    return removed
 
 
 def parse_args() -> argparse.Namespace:

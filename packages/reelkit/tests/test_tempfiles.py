@@ -2,7 +2,7 @@
 
 from pathlib import Path
 
-from main import cleanup_temp_dir
+from reelkit.tempfiles import cleanup_temp_dir
 
 
 # --- AC1: mp4 files deleted, txt untouched, returns correct count ---
