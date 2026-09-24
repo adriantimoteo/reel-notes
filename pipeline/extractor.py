@@ -9,7 +9,7 @@ from google.genai import errors as genai_errors
 import config
 from pipeline.exceptions import ExtractionError
 from pipeline.models import ExtractionResult, Ingredient, Item, ReelMetadata, TutorialStep
-from pipeline.retry import call_with_retry
+from reelkit.retry import call_with_retry
 
 logger = logging.getLogger(__name__)
 

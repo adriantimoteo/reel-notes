@@ -1,42 +1,28 @@
-"""Custom exceptions for the pipeline."""
+"""Custom exceptions for the pipeline.
 
+The download/extraction errors are shared via reelkit and re-exported here;
+storage and vault errors are specific to this app.
+"""
 
-class ReelCaptureError(Exception):
-    """Base for all pipeline errors."""
+from reelkit.exceptions import (
+    DownloadError,
+    DurationCapExceeded,
+    ExtractionError,
+    ReelCaptureError,
+    UnsupportedCarouselError,
+    UnsupportedPlatformError,
+)
 
-
-class UnsupportedPlatformError(ReelCaptureError):
-    def __init__(self, url: str) -> None:
-        super().__init__(f"unsupported URL: {url}")
-        self.url = url
-
-
-class UnsupportedCarouselError(UnsupportedPlatformError):
-    """Raised for a recognized-but-unsupported photo carousel URL (e.g. YouTube's
-    image-post Shorts format), so callers can give a more specific message than
-    the generic 'unsupported URL'."""
-
-
-class DurationCapExceeded(ReelCaptureError):
-    def __init__(self, duration: int, cap: int) -> None:
-        super().__init__(f"video is {duration}s, limit is {cap}s")
-        self.duration = duration
-        self.cap = cap
-
-
-class DownloadError(ReelCaptureError):
-    """yt-dlp failed for any reason other than duration."""
-    def __init__(self, url: str, cause: Exception) -> None:
-        super().__init__(f"download failed for {url}: {cause}")
-        self.url = url
-        self.cause = cause
-
-
-class ExtractionError(ReelCaptureError):
-    """Gemini call failed or returned unparseable response."""
-    def __init__(self, cause: Exception) -> None:
-        super().__init__(f"extraction failed: {cause}")
-        self.cause = cause
+__all__ = [
+    "DownloadError",
+    "DurationCapExceeded",
+    "ExtractionError",
+    "ReelCaptureError",
+    "StorageError",
+    "UnsupportedCarouselError",
+    "UnsupportedPlatformError",
+    "VaultWriteError",
+]
 
 
 class StorageError(ReelCaptureError):

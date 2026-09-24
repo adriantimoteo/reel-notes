@@ -328,7 +328,7 @@ async def test_fetch_retries_fetch_info_on_transient_failure(
     ]
     mock_download.return_value = Path("/tmp/downloads/abc123.mp4")
 
-    with patch("pipeline.retry.asyncio.sleep", AsyncMock()):
+    with patch("reelkit.retry.asyncio.sleep", AsyncMock()):
         result = await fetch("https://www.youtube.com/shorts/abc123")
 
     assert isinstance(result, ReelMetadata)

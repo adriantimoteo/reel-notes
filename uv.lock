@@ -6,6 +6,12 @@ resolution-markers = [
     "python_full_version < '3.14'",
 ]
 
+[manifest]
+members = [
+    "personal-reel-to-notes-capture",
+    "reelkit",
+]
+
 [[package]]
 name = "aiofiles"
 version = "25.1.0"
@@ -617,10 +623,9 @@ version = "0.1.0"
 source = { editable = "." }
 dependencies = [
     { name = "aiogram" },
-    { name = "gallery-dl" },
     { name = "google-genai" },
     { name = "python-dotenv" },
-    { name = "yt-dlp" },
+    { name = "reelkit", extra = ["telegram"] },
 ]
 
 [package.dev-dependencies]
@@ -632,10 +637,9 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "aiogram", specifier = ">=3.28.2" },
-    { name = "gallery-dl", specifier = ">=1.32.12" },
     { name = "google-genai", specifier = ">=2.7.0" },
     { name = "python-dotenv", specifier = ">=1.2.2" },
-    { name = "yt-dlp", specifier = ">=2026.6.9" },
+    { name = "reelkit", extras = ["telegram"], editable = "packages/reelkit" },
 ]
 
 [package.metadata.requires-dev]
@@ -876,6 +880,30 @@ sdist = { url = "https://files.pythonhosted.org/packages/82/ed/0301aeeac3e5353ef
 wheels = [
     { url = "https://files.pythonhosted.org/packages/0b/d7/1959b9648791274998a9c3526f6d0ec8fd2233e4d4acce81bbae76b44b2a/python_dotenv-1.2.2-py3-none-any.whl", hash = "sha256:1d8214789a24de455a8b8bd8ae6fe3c6b69a5e3d64aa8a8e5d68e694bbcb285a", size = 22101, upload-time = "2026-03-01T16:00:25.09Z" },
 ]
+
+[[package]]
+name = "reelkit"
+version = "0.1.0"
+source = { editable = "packages/reelkit" }
+dependencies = [
+    { name = "gallery-dl" },
+    { name = "google-genai" },
+    { name = "yt-dlp" },
+]
+
+[package.optional-dependencies]
+telegram = [
+    { name = "aiogram" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "aiogram", marker = "extra == 'telegram'", specifier = ">=3.28.2" },
+    { name = "gallery-dl", specifier = ">=1.32.12" },
+    { name = "google-genai", specifier = ">=2.7.0" },
+    { name = "yt-dlp", specifier = ">=2026.6.9" },
+]
+provides-extras = ["telegram"]
 
 [[package]]
 name = "requests"

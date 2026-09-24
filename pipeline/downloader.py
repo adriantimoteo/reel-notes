@@ -15,7 +15,7 @@ import yt_dlp
 import config
 from pipeline.exceptions import DurationCapExceeded, UnsupportedCarouselError, UnsupportedPlatformError
 from pipeline.models import ReelMetadata
-from pipeline.retry import call_with_retry
+from reelkit.retry import call_with_retry
 
 logger = logging.getLogger(__name__)
 

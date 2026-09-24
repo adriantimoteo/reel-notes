@@ -393,7 +393,7 @@ async def test_extract_retries_on_server_error_then_succeeds(mock_client: MagicM
     mock_client.models.generate_content.return_value.text = json.dumps(FIXTURE)
 
     metadata, _ = _make_metadata(tmp_path)
-    with patch("pipeline.retry.asyncio.sleep", AsyncMock()):
+    with patch("reelkit.retry.asyncio.sleep", AsyncMock()):
         result = await extract(metadata)
 
     assert result.summary == FIXTURE["summary"]
