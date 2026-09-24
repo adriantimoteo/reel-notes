@@ -9,6 +9,7 @@ from reelkit.urls import (
     _resolve_tiktok_shortlink,
     canonicalize,
     detect_platform,
+    detect_reel,
     is_instagram_post_path,
     is_tiktok_photo_post,
     is_tiktok_shortlink,
@@ -142,3 +143,40 @@ def test_resolve_tiktok_shortlink_returns_redirected_url(mock_urlopen: MagicMock
     result = _resolve_tiktok_shortlink("https://vt.tiktok.com/ZSqay7spP")
 
     assert result == "https://www.tiktok.com/@user/photo/123456"
+
+
+# --- detect_reel (free-text message scanning) ---
+
+
+@pytest.mark.parametrize("url,expected_platform", [
+    ("https://www.instagram.com/reel/abc123/", "instagram"),
+    ("https://www.instagram.com/p/abc123/", "instagram"),
+    ("https://www.instagram.com/tv/abc123/", "instagram"),
+    ("https://www.tiktok.com/@user/video/1234567890", "tiktok"),
+    ("https://vm.tiktok.com/ZMshortcode/", "tiktok"),
+    ("https://vt.tiktok.com/ZSshortcode/", "tiktok"),
+    ("https://www.tiktok.com/t/ZTshortcode/", "tiktok"),
+    ("https://www.youtube.com/shorts/abc123", "youtube"),
+    ("https://www.youtube.com/watch?v=abc123", "youtube"),
+    ("https://youtu.be/abc123", "youtube"),
+])
+def test_detect_reel_patterns(url: str, expected_platform: str) -> None:
+    result = detect_reel(url)
+    assert result is not None
+    assert result[1] == expected_platform
+
+
+def test_detect_reel_finds_link_inside_message_text() -> None:
+    assert detect_reel("omg go here https://www.instagram.com/reel/abc123/?igsh=x !!") == (
+        "instagram.com/reel/abc123", "instagram",
+    )
+
+
+def test_detect_reel_returns_none_without_reel_link() -> None:
+    assert detect_reel("see you at 7, https://example.com/menu") is None
+
+
+def test_detect_reel_does_not_match_full_tiktok_photo_url() -> None:
+    """Pins current behaviour: only vm./vt. shortlinks reach the TikTok photo path
+    from chat. Change deliberately if full /photo/ URLs should be picked up."""
+    assert detect_reel("https://www.tiktok.com/@user/photo/123456") is None

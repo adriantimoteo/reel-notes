@@ -14,6 +14,7 @@ import config
 from bot.status import StatusMessage
 from output.writers import VaultWriter
 from pipeline import orchestrator
+from reelkit.urls import detect_reel
 
 logger = logging.getLogger(__name__)
 
@@ -36,28 +37,9 @@ def require_allowed_user(
     return wrapper
 
 
-_REEL_PATTERNS: list[tuple[re.Pattern[str], str]] = [
-    (re.compile(r"instagram\.com/(?:reel|p|tv)/[\w-]+"), "instagram"),
-    (re.compile(r"tiktok\.com/@[\w.]+/video/\d+"), "tiktok"),
-    (re.compile(r"tiktok\.com/t/[\w]+"), "tiktok"),
-    (re.compile(r"vm\.tiktok\.com/[\w]+"), "tiktok"),
-    (re.compile(r"vt\.tiktok\.com/[\w]+"), "tiktok"),
-    (re.compile(r"youtube\.com/shorts/[\w-]+"), "youtube"),
-    (re.compile(r"youtube\.com/watch\?(?:[\w=&]*&)?v=[\w-]+"), "youtube"),
-    (re.compile(r"youtu\.be/[\w-]+"), "youtube"),
-]
-
 _bot: Bot | None = None
 _conn: sqlite3.Connection | None = None
 _vault_writer: VaultWriter | None = None
-
-
-def detect_reel(text: str) -> tuple[str, str] | None:
-    for pattern, platform in _REEL_PATTERNS:
-        match = pattern.search(text)
-        if match:
-            return match.group(0), platform
-    return None
 
 
 _VALID_TYPES: frozenset[str] = frozenset({"list", "tutorial", "other"})

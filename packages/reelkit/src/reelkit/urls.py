@@ -2,6 +2,7 @@
 
 import asyncio
 import logging
+import re
 import urllib.parse
 import urllib.request
 
@@ -91,3 +92,26 @@ async def resolve_canonical_url(url: str) -> tuple[str, str]:
             logger.warning("failed to resolve TikTok short link %s: %s", canonical, e)
 
     return canonical, platform
+
+
+_REEL_PATTERNS: list[tuple[re.Pattern[str], str]] = [
+    (re.compile(r"instagram\.com/(?:reel|p|tv)/[\w-]+"), "instagram"),
+    (re.compile(r"tiktok\.com/@[\w.]+/video/\d+"), "tiktok"),
+    (re.compile(r"tiktok\.com/t/[\w]+"), "tiktok"),
+    (re.compile(r"vm\.tiktok\.com/[\w]+"), "tiktok"),
+    (re.compile(r"vt\.tiktok\.com/[\w]+"), "tiktok"),
+    (re.compile(r"youtube\.com/shorts/[\w-]+"), "youtube"),
+    (re.compile(r"youtube\.com/watch\?(?:[\w=&]*&)?v=[\w-]+"), "youtube"),
+    (re.compile(r"youtu\.be/[\w-]+"), "youtube"),
+]
+
+
+def detect_reel(text: str) -> tuple[str, str] | None:
+    """Finds the first reel link in free-form message text. Returns (matched_url,
+    platform) — the match has no scheme, so pass it through resolve_canonical_url
+    (after prefixing https://) before using it as a key."""
+    for pattern, platform in _REEL_PATTERNS:
+        match = pattern.search(text)
+        if match:
+            return match.group(0), platform
+    return None
