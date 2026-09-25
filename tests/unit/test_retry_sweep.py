@@ -202,3 +202,24 @@ async def test_sweep_skips_reels_handled_earlier_in_the_same_run(conn) -> None:
 
     run.assert_not_called()
     bot.send_message.assert_not_called()
+
+
+async def test_sweep_stops_when_time_budget_is_used_up(conn) -> None:
+    first = await repository.save_reel(conn, _metadata("https://x/first"), EMPTY)
+    second = await repository.save_reel(conn, _metadata("https://x/second"), EMPTY)
+    pending = await retry_sweep.find_pending(conn)
+    bot = _bot()
+
+    async def fake_run(url, status, conn_, writer, prior_attempts=0, **kw):
+        await status.update("saved · note.md")
+        return True
+
+    # start=0, first check=0 (within budget), second check=100 (over budget)
+    with patch("pipeline.retry_sweep.time") as fake_time,          patch("pipeline.retry_sweep.orchestrator.run", side_effect=fake_run) as run:
+        fake_time.monotonic.side_effect = [0, 0, 100]
+        await retry_sweep.retry_pending(bot, conn, MagicMock(), pending, time_budget=50)
+
+    assert [c.args[0] for c in run.call_args_list] == ["https://x/first"]
+    untouched = await repository.find_by_url(conn, "https://x/second")
+    assert untouched["id"] == second and untouched["attempts"] == 0, "unreached reel must not lose an attempt"
+    assert first

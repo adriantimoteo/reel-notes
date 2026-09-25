@@ -7,6 +7,7 @@ succeeds or the reel is given up on — with the link, so it can be resent later
 
 import logging
 import sqlite3
+import time
 
 from aiogram import Bot
 
@@ -18,6 +19,10 @@ from storage import repository
 logger = logging.getLogger(__name__)
 
 MAX_RETRY_ATTEMPTS = 3
+# The task runs hourly and won't start a run while another is going, so a long
+# backlog must not eat the next slot. Reels not reached in time are left
+# untouched (no attempt used) and go first on the next run.
+RETRY_TIME_BUDGET_SECONDS = 40 * 60
 
 
 class _CollectingStatus:
@@ -46,9 +51,21 @@ async def retry_pending(
     conn: sqlite3.Connection,
     vault_writer: VaultWriter,
     pending: list[sqlite3.Row],
+    time_budget: float = RETRY_TIME_BUDGET_SECONDS,
 ) -> None:
-    """Re-runs each of `pending`, which the caller collected earlier with find_pending()."""
-    for row in pending:
+    """Re-runs each of `pending`, which the caller collected earlier with find_pending().
+
+    Stops starting new retries once `time_budget` seconds have passed.
+    """
+    started = time.monotonic()
+    for index, row in enumerate(pending):
+        if time.monotonic() - started >= time_budget:
+            logger.info(
+                "retry time budget (%ds) used up — leaving %d reel(s) for the next run",
+                time_budget, len(pending) - index,
+            )
+            break
+
         url = row["source_url"]
         latest = await repository.find_by_url(conn, url)
         if latest is None or latest["id"] != row["id"] or latest["vault_note_path"]:
