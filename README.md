@@ -163,6 +163,12 @@ type: other
 | `/reprocess <url> --as tutorial` | Re-run with a forced content type (`list`, `tutorial`, `other`) |
 | `/force <url>` | Bypass `MAX_VIDEO_DURATION_SECONDS` for one URL, up to `FORCE_MAX_VIDEO_DURATION_SECONDS` (default 600s) |
 
+### Failures and retries
+
+Every failure message ends with the link, so it can be copied and resent later. If a reel downloads but extraction fails with something transient (Gemini 503/429, a dropped connection, or a request that exceeds the 120s Gemini timeout set by `REQUEST_TIMEOUT_MS` in `pipeline/extractor.py`), its DB row is left without a note path. Each `--once` run retries those rows after draining new messages, up to 3 times, and messages you only when a retry succeeds or the reel is given up on. Resending a link whose earlier attempt failed also just reprocesses it. Failures that happen before the download finishes leave no row, so those need a resend.
+
+If a link's note was deleted from the vault, resending it says so and points at `/reprocess <url>` to regenerate it.
+
 ## Supported platforms
 
 | Platform | URL types |

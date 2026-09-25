@@ -9,6 +9,7 @@ from aiogram import Bot, Dispatcher
 import config
 from bot.handlers import register_handlers
 from output.writers import LocalFolderWriter
+from pipeline import retry_sweep
 from reelkit.telegram.drain import drain_pending
 from reelkit.tempfiles import cleanup_temp_dir
 from storage.db import get_connection, init_db
@@ -83,12 +84,17 @@ async def main(once: bool = False) -> None:
     register_handlers(dp, bot, conn, vault_writer)
     try:
         if once:
+            # Collected before draining so reels that fail in this run wait for the next one.
+            pending_retries = await retry_sweep.find_pending(conn)
             logger.info("draining pending updates")
             processed = await drain_pending(bot, dp)
             if processed is None:
                 logger.info("skipped — offline")
             else:
                 logger.info("drained %d update(s)", processed)
+                if pending_retries:
+                    logger.info("retrying %d earlier failure(s)", len(pending_retries))
+                    await retry_sweep.retry_pending(bot, conn, vault_writer, pending_retries)
         else:
             logger.info("bot started")
             await dp.start_polling(bot)

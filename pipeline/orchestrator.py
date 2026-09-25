@@ -4,6 +4,8 @@ import asyncio
 import logging
 import sqlite3
 
+import httpx
+
 import config
 from output import renderer
 from output.writers import VaultWriter
@@ -26,6 +28,25 @@ from storage import repository
 logger = logging.getLogger(__name__)
 
 
+def _is_transient(exc: Exception) -> bool:
+    """True for failures worth retrying on a later run: Gemini 5xx/429 and network drops."""
+    if not isinstance(exc, ExtractionError):
+        return False
+    cause = exc.cause
+    return gemini.is_retryable_error(cause) or isinstance(
+        cause, (ConnectionError, TimeoutError, httpx.TransportError)
+    )
+
+
+async def _record_failure(conn: sqlite3.Connection, reel_id: int | None, exc: Exception) -> None:
+    """Flags the reel's DB row so the next run's retry sweep knows whether to pick it up."""
+    if reel_id is None:
+        return
+    try:
+        await repository.mark_failed(conn, reel_id, str(exc), retryable=_is_transient(exc))
+    except Exception as e:
+        logger.warning("could not record failure for reel %s: %s", reel_id, e)
+
 
 async def run(
     url: str,
@@ -35,7 +56,11 @@ async def run(
     force_reprocess: bool = False,
     skip_length_check: bool = False,
     type_hint: str | None = None,
-) -> None:
+    prior_attempts: int = 0,
+) -> bool:
+    """Runs the pipeline for one URL. Returns False if it failed, True otherwise
+    (saved, or already captured). `prior_attempts` carries the retry count of a
+    reel being retried by the sweep so it survives the row being re-created."""
     if "://" not in url:
         url = "https://" + url
 
@@ -44,18 +69,23 @@ async def run(
     except UnsupportedPlatformError:
         canonical_url = url
 
-    existing_note_path: str | None = None
+    existing = await repository.find_by_url(conn, canonical_url)
+    existing_note_path: str | None = existing["vault_note_path"] if existing else None
 
-    if not force_reprocess:
-        existing = await repository.find_by_url(conn, canonical_url)
-        if existing:
-            logger.info("duplicate detected — %s", canonical_url)
-            note_path = existing["vault_note_path"] or "(note not yet written)"
-            await status.update(f"already captured · {note_path}")
-            return
-    else:
-        existing = await repository.find_by_url(conn, canonical_url)
-        existing_note_path = existing["vault_note_path"] if existing else None
+    if existing and existing_note_path and not force_reprocess:
+        logger.info("duplicate detected — %s", canonical_url)
+        if (config.VAULT_PATH / existing_note_path).exists():
+            await status.update(f"already captured · {existing_note_path}")
+        else:
+            await status.update(
+                f"already processed, but its note has since been deleted · {existing_note_path}"
+                f"\n/reprocess {url} to regenerate it"
+            )
+        return True
+
+    # A row with no note path is a leftover from an earlier failed run, not a
+    # duplicate: fall through and process it again, replacing the stale row.
+    reel_id: int | None = None
 
     try:
         await status.update("downloading…")
@@ -68,7 +98,7 @@ async def run(
             logger.error("download failed for %s: %s", url, e)
             raise DownloadError(url=url, cause=e) from e
 
-        if force_reprocess:
+        if force_reprocess or existing:
             if existing_note_path:
                 old_file = config.VAULT_PATH / existing_note_path
                 try:
@@ -81,7 +111,10 @@ async def run(
         try:
             try:
                 reel_id = await repository.save_reel(
-                    conn, metadata, ExtractionResult(transcription="", ocr_text="", summary="", title="")
+                    conn,
+                    metadata,
+                    ExtractionResult(transcription="", ocr_text="", summary="", title=""),
+                    attempts=prior_attempts,
                 )
             except Exception as e:
                 logger.error("storage failed for %s: %s", url, e)
@@ -125,6 +158,7 @@ async def run(
 
         logger.info("note saved: %s", note_path.name)
         await status.update(f"saved · {note_path.name}")
+        return True
 
     except ReelCaptureError as exc:
         if isinstance(exc, UnsupportedCarouselError):
@@ -154,7 +188,11 @@ async def run(
             msg = f"vault write failed · {exc.path} · {exc.cause}"
         else:
             msg = f"pipeline error · {exc}"
-        await status.update(msg)
+        await _record_failure(conn, reel_id, exc)
+        await status.update(f"{msg}\n{url}")
+        return False
     except Exception as exc:
         logger.error("unexpected error for %s: %s", url, exc)
-        await status.update(f"pipeline error · {exc}")
+        await _record_failure(conn, reel_id, exc)
+        await status.update(f"pipeline error · {exc}\n{url}")
+        return False

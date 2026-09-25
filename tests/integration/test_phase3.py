@@ -11,6 +11,7 @@ from bot.status import StatusMessage
 from pipeline.exceptions import DurationCapExceeded
 from pipeline.models import ExtractionResult, Item, ReelMetadata
 from storage.db import get_connection, init_db
+from storage import repository
 from storage.repository import save_reel
 
 _STUB_EXTRACTION = ExtractionResult(
@@ -146,10 +147,13 @@ async def test_generic_download_failure() -> None:
 
 # --- AC4: duplicate URL → "already captured" ---
 
-async def test_duplicate_url_already_captured() -> None:
+async def test_duplicate_url_already_captured(tmp_path, monkeypatch) -> None:
     conn = _make_conn()
     bot = _make_bot()
-    await save_reel(conn, METADATA, EXTRACTION)
+    reel_id = await save_reel(conn, METADATA, EXTRACTION)
+    (tmp_path / "reel.md").write_text("note")
+    await repository.update_vault_path(conn, reel_id, "reel.md")
+    monkeypatch.setattr("pipeline.orchestrator.config.VAULT_PATH", tmp_path)
 
     msg = _make_message(ALLOWED_ID, REEL_URL)
 

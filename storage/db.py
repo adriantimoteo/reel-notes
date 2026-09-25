@@ -35,13 +35,22 @@ def init_db(db_path: Path) -> None:
                 ocr_text    TEXT,
                 summary     TEXT,
                 vault_note_path TEXT,
-                content_type TEXT
+                content_type TEXT,
+                attempts    INTEGER NOT NULL DEFAULT 0,
+                retryable   INTEGER,
+                last_error  TEXT
             )
         """)
-        try:
-            conn.execute("ALTER TABLE reels ADD COLUMN content_type TEXT")
-        except sqlite3.OperationalError:
-            pass  # column already exists (fresh DB or repeated init_db call)
+        for column_def in (
+            "content_type TEXT",
+            "attempts INTEGER NOT NULL DEFAULT 0",
+            "retryable INTEGER",
+            "last_error TEXT",
+        ):
+            try:
+                conn.execute(f"ALTER TABLE reels ADD COLUMN {column_def}")
+            except sqlite3.OperationalError:
+                pass  # column already exists (fresh DB or repeated init_db call)
         conn.execute("DROP TABLE IF EXISTS items")
         conn.commit()
     finally:

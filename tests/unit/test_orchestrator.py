@@ -147,7 +147,7 @@ async def test_run_deletes_existing_record_when_force_true_and_url_exists(tmp_pa
     async def mock_delete(conn, url: str) -> None:
         call_order.append("delete_by_url")
 
-    async def mock_save_reel(conn, meta, extraction) -> int:
+    async def mock_save_reel(conn, meta, extraction, attempts=0) -> int:
         call_order.append("save_reel")
         return 1
 

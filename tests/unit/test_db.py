@@ -33,6 +33,7 @@ def test_reels_table_columns(conn: sqlite3.Connection) -> None:
         "id", "source_url", "platform", "author", "posted_at",
         "captured_at", "title", "caption", "transcription",
         "ocr_text", "summary", "vault_note_path", "content_type",
+        "attempts", "retryable", "last_error",
     }
     assert expected == columns
 

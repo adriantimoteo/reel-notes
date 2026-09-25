@@ -65,10 +65,13 @@ EXTRACTION = ExtractionResult(
 
 # --- AC1: pre-seeded URL → status updated with "already captured" ---
 
-async def test_duplicate_url_status_contains_already_captured() -> None:
+async def test_duplicate_url_status_contains_already_captured(tmp_path, monkeypatch) -> None:
     conn = _make_conn()
     bot = _make_bot()
-    await save_reel(conn, METADATA, EXTRACTION)
+    reel_id = await save_reel(conn, METADATA, EXTRACTION)
+    (tmp_path / "reel.md").write_text("note")
+    await repository.update_vault_path(conn, reel_id, "reel.md")
+    monkeypatch.setattr("pipeline.orchestrator.config.VAULT_PATH", tmp_path)
 
     msg = _make_message(ALLOWED_ID, REEL_URL)
 
@@ -168,22 +171,42 @@ async def test_duplicate_with_vault_path_shows_path() -> None:
     assert vault_path in updated_text
 
 
-# --- AC4 (integration): duplicate with no vault path shows fallback ---
+# --- AC4 (integration): row with no vault path is a failed earlier run, not a duplicate ---
 
-async def test_duplicate_without_vault_path_shows_fallback() -> None:
+async def test_row_without_vault_path_is_reprocessed_not_deduped() -> None:
     conn = _make_conn()
     bot = _make_bot()
     await save_reel(conn, METADATA, EXTRACTION)
 
     msg = _make_message(ALLOWED_ID, REEL_URL)
 
-    with patch("bot.handlers.config") as mock_cfg, \
-         patch("bot.handlers._bot", bot), \
-         patch("bot.handlers._conn", conn), \
-         patch("bot.handlers._vault_writer", MagicMock()):
+    with patch("bot.handlers.config") as mock_cfg,          patch("bot.handlers._bot", bot),          patch("bot.handlers._conn", conn),          patch("bot.handlers._vault_writer", MagicMock()),          patch("pipeline.orchestrator.downloader.fetch", AsyncMock(side_effect=RuntimeError("boom"))):
+        mock_cfg.TELEGRAM_ALLOWED_USER_ID = ALLOWED_ID
+        await handle_message(msg)
+
+    calls = [call[0][0] for call in bot.edit_message_text.call_args_list]
+    assert calls[0] == "downloading…"
+    assert not any("already captured" in c for c in calls)
+    assert "download failed" in calls[-1]
+    assert REEL_URL in calls[-1], "failure message must include the link so it can be resent"
+
+
+# --- AC5 (integration): row whose note file was deleted says so ---
+
+async def test_duplicate_with_deleted_note_says_so(tmp_path, monkeypatch) -> None:
+    conn = _make_conn()
+    bot = _make_bot()
+    reel_id = await save_reel(conn, METADATA, EXTRACTION)
+    await repository.update_vault_path(conn, reel_id, "gone/reel.md")
+    monkeypatch.setattr("pipeline.orchestrator.config.VAULT_PATH", tmp_path)
+
+    msg = _make_message(ALLOWED_ID, REEL_URL)
+
+    with patch("bot.handlers.config") as mock_cfg,          patch("bot.handlers._bot", bot),          patch("bot.handlers._conn", conn),          patch("bot.handlers._vault_writer", MagicMock()):
         mock_cfg.TELEGRAM_ALLOWED_USER_ID = ALLOWED_ID
         await handle_message(msg)
 
     updated_text: str = bot.edit_message_text.call_args[0][0]
-    assert "already captured" in updated_text
-    assert "note not yet written" in updated_text
+    assert "note has since been deleted" in updated_text
+    assert "gone/reel.md" in updated_text
+    assert f"/reprocess {REEL_URL}" in updated_text
