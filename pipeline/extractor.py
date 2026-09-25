@@ -15,13 +15,21 @@ __all__ = ["EXTRACTION_SCHEMA", "MAX_POLL_ATTEMPTS", "MODEL_NAME", "extract", "p
 
 _is_retryable_extraction_error = gemini.is_retryable_error
 
+# Without a timeout a stalled Gemini request hangs the whole run indefinitely. A
+# timed-out reel is flagged retryable (see orchestrator._is_transient) and picked
+# up by the next run. Normal calls finish in ~20s.
+REQUEST_TIMEOUT_MS = 120_000
+
 _client: genai.Client | None = None
 
 
 def _get_client() -> genai.Client:
     global _client
     if _client is None:
-        _client = genai.Client(api_key=config.GEMINI_API_KEY)
+        _client = genai.Client(
+            api_key=config.GEMINI_API_KEY,
+            http_options=genai.types.HttpOptions(timeout=REQUEST_TIMEOUT_MS),
+        )
     return _client
 
 EXTRACTION_SCHEMA = {

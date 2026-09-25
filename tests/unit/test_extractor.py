@@ -409,3 +409,17 @@ async def test_extract_does_not_retry_on_permanent_client_error(mock_client: Mag
         await extract(metadata)
 
     assert mock_client.files.upload.call_count == 1
+
+
+def test_gemini_client_is_built_with_a_request_timeout() -> None:
+    """A stalled Gemini call must time out instead of hanging the whole run."""
+    from unittest.mock import patch
+
+    from pipeline import extractor
+
+    with patch.object(extractor, "_client", None), \
+         patch("pipeline.extractor.genai.Client") as client_cls:
+        extractor._get_client()
+
+    http_options = client_cls.call_args.kwargs["http_options"]
+    assert http_options.timeout == extractor.REQUEST_TIMEOUT_MS
